@@ -117,11 +117,11 @@ function segs(el){
 const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) ? c : undefined; };
 function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
-/* keep the sentence being read in view: when it reaches the bottom 25% of the screen (or is above it),
-   scroll so it sits about 25% from the top (RYU 2026-11-23) */
+/* keep the sentence being read in view: when it reaches the bottom 10% of the screen (or is above it),
+   scroll so it sits about 10% from the top (RYU 2026-11-23) */
 function follow(el){
   const r = el.getBoundingClientRect(), vh = innerHeight;
-  if (r.bottom > vh * 0.75 || r.top < 0) window.scrollTo({top: Math.max(0, scrollY + r.top - vh * 0.25), behavior: "smooth"});
+  if (r.bottom > vh * 0.9 || r.top < 0) window.scrollTo({top: Math.max(0, scrollY + r.top - vh * 0.1), behavior: "smooth"});
 }
 async function playEls(els, chain, loop){
   const was = !!P.mode; stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain || loop ? "seq" : "single";
