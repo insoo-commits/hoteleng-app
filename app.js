@@ -258,6 +258,7 @@ function drawGroups(){
   const btns = G.map((g, i) => h("button", {class: "group" + (SEP.has(i + 1) ? " sep" : ""), type: "button", "aria-pressed": cur === i + 1 ? "true" : "false",
     onclick: () => go(S.lastA[i + 1] && at.has(S.lastA[i + 1]) ? S.lastA[i + 1] : g[1][0][1][0])}, h("span", {class: "gn"}, g[0])));
   $("groups").replaceChildren(h("span", {class: "gsep", "aria-hidden": "true"}), ...btns);
+  if (cur) $("app").dataset.g = "K" + cur;    // v1.30 RYU: colour follows the main menu, like the Lao app
 }
 function drawSubs(){
   const gi = gOf(S.code), g = G[gi - 1], cur = sOf(S.code);
