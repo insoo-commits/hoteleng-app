@@ -1,5 +1,5 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>호텔서비스 영어</title>
-
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#2f4f66"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="호텔서비스 영어">
 
 <script>(function(){var n=navigator,t=n.maxTouchPoints>0||"ontouchstart" in window;if((/iPad/.test(n.userAgent)||(/Macintosh/.test(n.userAgent)&&t))||(t&&Math.min(screen.width,screen.height)>=700))document.documentElement.classList.add("tab")})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1266,6 +1266,12 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
   html:not(.tab) .controls .ctl .bsel{font-size:14px}
 }
 #sheet{will-change:auto}
+.dlp{text-align:center;margin:4px 0 0;font-size:13px}.dla{color:var(--accent,#2f6f8f);font-weight:600;text-decoration:none}.dls{color:var(--mut,#6b7680);margin-left:6px;font-variant-numeric:tabular-nums}
+/* bottom player: speaker, [code/n] i/n, icons in the buttons (RYU 2026-11-23, like lao-app) */
+.player .pspk{display:inline-flex;vertical-align:-3px;margin-right:6px;color:#e0a33a}.player .pspk svg{width:17px;height:17px}
+.player .pw{font-variant-numeric:tabular-nums;opacity:.85}
+.player button{display:inline-flex;align-items:center;gap:5px}.player .pico{display:inline-flex}.player .pico svg{width:12px;height:12px}
+#pstop{background:transparent;color:var(--bg);box-shadow:inset 0 0 0 1.5px var(--bg)}
 /* word cards: every row centred, the last one too (RYU 2026-11-23) */
 .wcards{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}.wcards>.wcard{flex:0 0 calc((100% - 30px)/4);min-width:0}
 @media(max-width:900px){.wcards>.wcard{flex-basis:calc((100% - 20px)/3)}}
@@ -1362,8 +1368,8 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
     </div>
     <div class="body" id="view"></div>
   </section>
-  <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="bt">정지</span></button></div>
-  <p class="foot">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스 영어 v1.13 · 182묶음 · 호텔 부서별 예문: Practical Hotel English</p>
+  <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></span><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></span><span class="bt">정지</span></button></div>
+  <p class="foot" id="voiceNote">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
+  <p class="ver">호텔서비스 영어 v1.14 · 182묶음 · 호텔 부서별 예문: Practical Hotel English</p>
 </div>
-<script src="data.js?v=1.13"></script><script src="app.js?v=1.13"></script></body></html>
+<script src="data.js?v=1.14"></script><script src="app.js?v=1.14"></script></body></html>

@@ -3,6 +3,8 @@ const $ = id => document.getElementById(id), $$ = s => [...document.querySelecto
 const ICO = {
   spk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
   rep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>'};
+const PSPK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const PICO = {pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>', play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7z" fill="currentColor"/></svg>'};
 function ico(n){ const s = document.createElement("span"); s.className = "ico"; s.setAttribute("aria-hidden", "true"); s.innerHTML = ICO[n]; return s; }
 function h(tag, attrs, ...kids){
   const el = document.createElement(tag);
@@ -92,8 +94,15 @@ function speakOne(text, v){
 }
 async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150); return tok === P.tok; }
 async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
-function showPlayer(t){ $("player").hidden = false; document.body.classList.add("has-player"); $("pt").textContent = t; }
-function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : P.hold && P.els && P.els.length > 1 && !LINE ? "계속" : "일시정지"; }
+/* bottom bar: [menu-sub-bundle/bundles in the sub] sentence/sentences · text, like lao-app (RYU 2026-11-23) */
+function showPlayer(t, i, n){
+  $("player").hidden = false; document.body.classList.add("has-player");
+  const c = S.code, nb = (G[gOf(c) - 1][1].find((x, j) => gOf(c) + "-" + String(j + 1).padStart(2, "0") === sOf(c)) || [0, []])[1].length;
+  const sp = h("span", {class: "pspk", "aria-hidden": "true"}); sp.innerHTML = PSPK;
+  $("pt").replaceChildren(sp, h("span", {class: "pw"}, "[" + c + "/" + String(nb).padStart(2, "0") + "]" + (n ? " " + i + "/" + n : "")), " · " + t);
+}
+function pauseLabel(){ const b = $("ppause"); if (!b) return; const go = P.paused || (P.hold && P.els && P.els.length > 1 && !LINE);
+  b.querySelector(".bt").textContent = P.paused ? "재개" : go ? "계속" : "일시정지"; b.querySelector(".pico").innerHTML = go ? PICO.play : PICO.pause; }
 function stopPlay(){ LINE = null; if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
 function togglePause(){
   if (!P.mode) return;
@@ -135,7 +144,7 @@ async function playEls(els, chain, loop){
     const sg = segs(el);
     for (let k = 0; P.hold || k < (+S.rep || 1); k++){
       for (let j = 0; j < sg.length; j++){
-        showPlayer((P.hold ? "∞ · " : +S.rep > 1 ? (k % +S.rep + 1) + "/" + S.rep + " · " : "") + sg[j][1]);
+        showPlayer((P.hold ? "∞ · " : "") + sg[j][1], i + 1, els.length);
         if (!(await say(tok, sg[j][1], sg[j][0]))) return;
         if (P.skip) break;
         if (j < sg.length - 1){ await gap(300); if (!(await waitPause(tok))) return; }
@@ -354,7 +363,7 @@ async function playCard(c){
   if (c.classList.contains("now")) return stopPlay();
   stopPlay(); const tok = ++P.tok; c.classList.add("now");
   for (let k = 0; k < S.rep && tok === P.tok; k++){
-    c.classList.remove("back"); showPlayer(c.dataset.say);
+    c.classList.remove("back"); showPlayer(c.dataset.say, 1, 1);
     if (!(await say(tok, c.dataset.say, "f"))) return; await gap(300);
     c.classList.add("back"); if (c.dataset.ex){ if (!(await say(tok, c.dataset.ex, c.dataset.exv))) return; } else await gap(1200);
     await gap(500);
@@ -379,7 +388,7 @@ async function playCardsAll(chain){
     if (tok !== P.tok) return; const c = cs[i];
     $$(".now").forEach(x => x.classList.remove("now")); c.classList.add("now"); follow(c);
     for (let k = 0; P.hold || k < (+S.rep || 1); k++){
-      c.classList.remove("back"); showPlayer((P.hold ? "∞ · " : "") + c.dataset.say);
+      c.classList.remove("back"); showPlayer((P.hold ? "∞ · " : "") + c.dataset.say, i + 1, cs.length);
       if (!(await say(tok, c.dataset.say, "f"))) return; if (P.skip) break;
       await gap(400); c.classList.add("back");   // word, then the example on the back, as one set (RYU 2026-11-23)
       if (c.dataset.ex){ if (!(await say(tok, c.dataset.ex, c.dataset.exv))) return; } else await gap(1100);
@@ -567,3 +576,30 @@ document.addEventListener("keydown", e => {
 })();
 drawStats();
 if (location.hash && (at.has(decodeURIComponent(location.hash.slice(1))) || location.hash === "#help")) route(); else go(S.code);
+
+/* ---------- offline: service worker + "음성 mp3 내려받기" (like lao-app; only on the web site, not in the preview) ---------- */
+if (/^https?:/.test(location.protocol) && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+(function(){
+  const n = $("voiceNote"), files = [...new Set(Object.values(AUD))].filter(u => /^audio\//.test(u));
+  if (!n || !files.length || !/^https?:/.test(location.protocol) || !window.indexedDB) return;
+  const p = h("p", {class: "dlp"}), a = h("a", {href: "#", class: "dla"}, "↓ 음성 mp3 내려받기 (오프라인용)"), st = h("span", {class: "dls"});
+  p.append(a, " ", st); n.after(p);
+  let _db; const ADB = () => _db || (_db = new Promise((res, rej) => { const r = indexedDB.open("hoteleng-audio", 1); r.onupgradeneeded = () => r.result.createObjectStore("c"); r.onsuccess = () => res(r.result); r.onerror = () => { _db = null; rej(r.error); }; }));
+  const aput = (k, v) => ADB().then(db => new Promise(res => { const tx = db.transaction("c", "readwrite"); tx.objectStore("c").put(v, k); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); })).catch(() => false);
+  const akeys = () => ADB().then(db => new Promise(res => { const q = db.transaction("c").objectStore("c").getAllKeys(); q.onsuccess = () => res(new Set(q.result)); q.onerror = () => res(new Set()); })).catch(() => new Set());
+  const key = u => u.split("/").pop().replace(/\.mp3$/, "");
+  let busy = false;
+  a.addEventListener("click", async e => {
+    e.preventDefault(); if (busy) return; busy = true;
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (er) {}
+    const have = await akeys(), q = files.filter(u => !have.has(key(u))); let done = files.length - q.length;
+    const sw = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+    const show = () => { st.textContent = done + " / " + files.length; };
+    async function w(){ while (q.length){ const u = q.shift(); try { const r = await fetch(u); if (r.ok){ const buf = await r.arrayBuffer(); if (!sw) await aput(key(u), buf); } } catch (er) {} done++; if (done % 20 === 0 || done === files.length) show(); } }
+    show(); await Promise.all([w(), w(), w(), w(), w(), w()]);
+    const h2 = await akeys(), left = files.filter(u => !h2.has(key(u))).length;
+    st.textContent = left > 0 ? (files.length - left) + " / " + files.length + " (" + left + "개 남음, 다시 누르기)" : "(완료)";
+    busy = false; if (!left) try { localStorage.setItem("hoteleng-audio-saved", "1"); } catch (er) {}
+  });
+  try { if (localStorage.getItem("hoteleng-audio-saved")) st.textContent = "(완료)"; } catch (er) {}
+})();
