@@ -185,7 +185,7 @@ function lineRep(el){
     if (idx !== P.i){ P.skip = idx - P.i; P.i = idx; quiet(); }
     pauseLabel(); return;
   }
-  playEls([el], false, true); LINE = el;
+  playEls([el], false, !el.classList.contains("tq")); LINE = el;   // TOEIC question audio: one play only; the explanation lines below still repeat (RYU 2026-11-23)
 }
 /* 대화 반복 · 단어 반복 · 문장 반복: the group plays round and round until 정지 (Esc) or a second tap */
 let GRP = null;
@@ -309,6 +309,7 @@ function qaBox(q, n){
 }
 /* TOEIC: [part, question, [choices], answer index, explanation, script?]  Part 1–4 are listening: text hidden until 듣기 문제 영어 보기 */
 const isLis = p => /^Part [1-4]/.test(p);
+const TQN = 10;   // TOEIC questions shown at a time (TOEIC menu bundles hold a bank of ~90 and draw 10)
 /* voices like the test: Part 1 one voice; Part 2 question and answers in different voices;
    Part 3 M: man, W: woman; Part 4 one speaker; the question of Part 3·4 read by a narrator (m2). Voices take turns by question number. */
 function tqSeq(q, n){
@@ -364,7 +365,16 @@ function renderLearn(b){
     dr: () => sec(b.drt || "바꿔 말하기", null, (b.dr || []).map(drillBox)),
     sm: () => sec("정리", null, b.sm ? h("div", {class: "tip"}, [].concat(b.sm).map(t => h("p", {class: "note-ko"}, t))) : null),
     qa: () => sec("확인 문제", null, (b.qa || []).map(qaBox)),
-    tq: () => sec(b.tqt || "TOEIC 연계", hasLis ? tShow : null, (b.tq || []).map(tqBox))};
+    tq: () => { const all = b.tq || []; if (!all.length) return null;
+      /* question bank (RYU 2026-11-23): TQN questions drawn at random each time; 🔀 draws again */
+      const wrap = h("div", {class: "tqwrap"});
+      const draw = () => { let pick = all.map((q, i) => i);
+        if (all.length > TQN){ for (let i = pick.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
+          pick = pick.slice(0, TQN).sort((x, y) => x - y); }
+        wrap.replaceChildren(...pick.map((i, n) => tqBox(all[i], n))); };
+      draw();
+      const more = all.length > TQN ? h("button", {class: "wrep hrep", type: "button", onclick: () => { stopPlay(); draw(); }}, "🔀 다른 문제 (" + all.length + "문제 중 " + TQN + ")") : null;
+      return sec(b.tqt || "TOEIC 연계", [more, hasLis ? tShow : null], wrap); }};
   return [(b.ord || ["d", "w", "dr", "sm", "qa", "tq"]).map(k => parts[k]()), relBox(b), pnRow(b.code)];
 }
 
