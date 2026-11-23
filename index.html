@@ -1243,6 +1243,10 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 
 .opts .replab{margin-left:12px}
 #rowbtns[hidden],#kbinfo[hidden]{display:none!important}
+/* 묶음 전체 듣기 + 연속 듣기: own line, centred, both visible on phones (RYU 2026-11-23) */
+.controls #rowbtns{grid-column:1 / -1;flex:1 0 100%;width:100%;justify-content:center;flex-wrap:nowrap;gap:8px}
+.controls #rowbtns .tbtn{margin:0;min-width:0}
+@media (max-width:360px){ .controls #rowbtns .tbtn{padding-left:9px;padding-right:9px;font-size:13px} }
 .rowbtns{gap:8px;flex-wrap:wrap}
 .seg .kc{margin-left:5px}
 
