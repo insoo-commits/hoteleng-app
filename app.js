@@ -177,7 +177,7 @@ function playBundle(chain){
   if (S.mode !== "learn") return;
   const els = bundleEls();
   if (!els.length){ if (chain) chainOn(); return; }
-  playEls(els, chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle";
+  playEls(els, chain, !chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle";
 }
 $("pstop").addEventListener("click", stopPlay);
 $("ppause").addEventListener("click", togglePause);
@@ -380,6 +380,7 @@ async function playCardsAll(chain){
     c.classList.remove("back");
     if (P.skip){ i = Math.max(0, Math.min(cs.length - 1, i + P.skip)); P.skip = 0; continue; }
     i++;
+    if (!chain && i >= cs.length){ i = 0; await gap(600); if (!(await waitPause(tok))) return; }   // 묶음 재생 starts again from the first card (RYU 2026-11-23)
   }
   if (tok !== P.tok) return;
   if (chain) return chainOn();
