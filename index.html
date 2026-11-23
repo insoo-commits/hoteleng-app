@@ -1241,12 +1241,47 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 @media (max-width:600px){.seg .lg{display:none}.seg .sh{display:inline}}
 .sample-note{font-size:12.5px;color:var(--muted);text-align:center;margin:0}
 
+/* repeat icon inside the 횟수 box, like lao-app */
+.repw{position:relative;display:inline-flex;flex:0 0 auto}
+.repw svg{position:absolute;left:10px;top:50%;width:14px;height:14px;transform:translateY(-50%);pointer-events:none;color:var(--ink)}
+.controls .repw .bsel{padding-left:30px}
+/* phones: roomier controls like lao-app (RYU 2026-11-23) */
+@media (max-width:560px){
+  html:not(.tab) .controls{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:14px 14px 12px;row-gap:12px;column-gap:6px}
+  html:not(.tab) .controls .seg{width:auto;grid-column:auto}
+  html:not(.tab) .controls .opts{margin-left:auto}
+  html:not(.tab) .controls .seg{padding:4px;gap:4px}
+  html:not(.tab) .controls .seg button{height:38px;font-size:15px;padding:0 13px}
+  html:not(.tab) .controls .ctl .bsel{height:38px;font-size:15px;padding-right:24px;border-radius:999px}
+  html:not(.tab) .controls .repw .bsel{padding-left:32px}
+  html:not(.tab) .repw svg{width:16px;height:16px;left:11px}
+  html:not(.tab) .controls .opts{gap:6px}
+  html:not(.tab) .controls #ctlrep .tbtn{height:38px;font-size:14.5px;padding:0 14px}
+  html:not(.tab) .controls .class-row{row-gap:8px}
+}
+@media (max-width:380px){
+  html:not(.tab) .controls{padding-left:10px;padding-right:10px}
+  html:not(.tab) .controls .seg button{padding:0 9px;font-size:14px}
+  html:not(.tab) .controls .ctl .bsel{padding-right:20px}
+  html:not(.tab) .controls .ctl .bsel{font-size:14px}
+}
+#sheet{will-change:auto}
+.controls .ctl>span.repw{display:inline-flex}
+/* 연속 재생 · 묶음 재생 like lao-app: one pair, outer ends round, inner ends nearly square; key badge filled (RYU 2026-11-23) */
+.controls #ctlrep{gap:6px}
+.controls #ctlrep .wrep.tbtn{border:1.5px solid var(--accent);color:var(--accent);background:var(--sheet);font-weight:600;display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px}
+.controls #ctlrep .wrep.tbtn:first-of-type{border-radius:999px 6px 6px 999px}
+.controls #ctlrep .wrep.tbtn:last-of-type{border-radius:6px 999px 999px 6px}
+.controls #ctlrep .wrep.tbtn .ico{color:var(--accent)}
+.controls #ctlrep .kc{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);opacity:1;margin-left:8px}
+#ctlrep[data-on="chain"] .tbtn:first-of-type,#ctlrep[data-on="bundle"] .tbtn:last-of-type{background:var(--rev)!important;color:var(--ink)!important}
+
 .opts .replab{margin-left:12px}
-#rowbtns[hidden],#kbinfo[hidden]{display:none!important}
+#ctlrep[hidden],#kbinfo[hidden]{display:none!important}
 /* 묶음 전체 듣기 + 연속 듣기: own line, centred, both visible on phones (RYU 2026-11-23) */
-.controls #rowbtns{grid-column:1 / -1;flex:1 0 100%;width:100%;justify-content:center;flex-wrap:nowrap;gap:8px}
-.controls #rowbtns .tbtn{margin:0;min-width:0}
-@media (max-width:360px){ .controls #rowbtns .tbtn{padding-left:9px;padding-right:9px;font-size:13px} }
+.controls #ctlrep{grid-column:1 / -1;flex:1 0 100%;width:100%;justify-content:center;flex-wrap:nowrap;gap:8px}
+.controls #ctlrep .tbtn{margin:0;min-width:0}
+@media (max-width:360px){ .controls #ctlrep .tbtn{padding-left:9px;padding-right:9px;font-size:13px} }
 .rowbtns{gap:8px;flex-wrap:wrap}
 .seg .kc{margin-left:5px}
 
@@ -1293,9 +1328,9 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
         <button data-mode="cards" id="m-cards" type="button" aria-pressed="false"><span class="lg">주요단어</span><span class="sh">단어</span><kbd class="kc">W</kbd></button>
         <button data-mode="quiz" id="m-quiz" type="button" aria-pressed="false"><span class="lg">복습퀴즈</span><span class="sh">퀴즈</span><kbd class="kc">E</kbd></button>
       </div>
-      <div class="opts"><label class="ctl"><span class="replab">문장 재생 횟수<kbd class="kc">1~5</kbd></span><select id="repSel" class="bsel"><option value="1">1회</option><option value="2">2회</option><option value="3">3회</option><option value="4">4회</option><option value="5">5회</option></select></label>
-      <label class="ctl"><span>속도<kbd class="kc">- =</kbd></span><select id="rateSel" class="bsel"><option value="0.8">×0.8</option><option value="0.9">×0.9</option><option value="1">×1.0</option><option value="1.1">×1.1</option><option value="1.2">×1.2</option></select></label></div>
-      <div class="rowbtns" id="rowbtns"><button class="wrep tbtn" type="button" id="playAll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>묶음 전체 듣기<kbd class="kc">G</kbd></button><button class="wrep tbtn" type="button" id="playCont"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5v13l8.5-6.5zM12.5 5.5v13l8.5-6.5z"/></svg></span>연속 듣기<kbd class="kc">C</kbd></button></div>
+      <div class="opts"><label class="ctl"><span class="replab">문장 재생 횟수<kbd class="kc">1~5</kbd></span><span class="repw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><select id="repSel" class="bsel" aria-label="문장 재생 횟수"><option value="1">1회</option><option value="2">2회</option><option value="3">3회</option><option value="4">4회</option><option value="5">5회</option></select></span></label>
+      <label class="ctl"><span>속도<kbd class="kc">- =</kbd></span><select id="rateSel" class="bsel" aria-label="속도"><option value="0.8">×0.8</option><option value="0.9">×0.9</option><option value="1">×1.0</option><option value="1.1">×1.1</option><option value="1.2">×1.2</option></select></label></div>
+      <div class="rowbtns ctlrep" id="ctlrep"><button class="wrep tbtn" type="button" id="playCont"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>연속 재생<kbd class="kc">C</kbd></button><button class="wrep tbtn" type="button" id="playAll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>묶음 재생<kbd class="kc">G</kbd></button></div>
       <div class="kbinfo" id="kbinfo"><span><kbd class="kc">Space</kbd>일시정지·재개</span><span><kbd class="kc">Esc</kbd>정지</span><span><kbd class="kc">Enter</kbd>무한 반복</span><span><kbd class="kc">←</kbd>이전 문장</span><span><kbd class="kc">→</kbd>다음 문장</span><span><kbd class="kc">?</kbd>단축키 목록</span></div>
       <div class="class-row" id="classRow" aria-label="가리기">
         <label><input type="checkbox" id="tKo">한국어 뜻 가리기</label>
@@ -1306,6 +1341,6 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="bt">정지</span></button></div>
   <p class="foot">🔊 손님은 남성, 직원은 여성 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스 영어 v1.1 · 139묶음 · 호텔 부서별 예문: Practical Hotel English</p>
+  <p class="ver">호텔서비스 영어 v1.2 · 139묶음 · 호텔 부서별 예문: Practical Hotel English</p>
 </div>
-<script src="data.js?v=1.1"></script><script src="app.js?v=1.1"></script></body></html>
+<script src="data.js?v=1.2"></script><script src="app.js?v=1.2"></script></body></html>

@@ -72,7 +72,7 @@ async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150);
 async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
 function showPlayer(t){ $("player").hidden = false; document.body.classList.add("has-player"); $("pt").textContent = t; }
 function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : "일시정지"; }
-function stopPlay(){ P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
+function stopPlay(){ const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
 function togglePause(){
   if (!P.mode) return;
   P.paused = !P.paused;
@@ -124,12 +124,13 @@ async function playEls(els, chain){
 /* G: this bundle · C: this bundle and the next ones */
 const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
 function playBundle(chain){
+  const cr = $("ctlrep");
   if (query || S.code === "help") return;
-  if (S.mode === "cards") return playCardsAll(chain);
+  if (S.mode === "cards"){ playCardsAll(chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle"; return; }
   if (S.mode !== "learn") return;
   const els = bundleEls();
   if (!els.length){ if (chain) chainOn(); return; }
-  playEls(els, chain);
+  playEls(els, chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle";
 }
 $("pstop").addEventListener("click", stopPlay);
 $("ppause").addEventListener("click", togglePause);
@@ -139,7 +140,7 @@ window.clipsOf = code => {
   const box = h("div", null, renderLearn(b).flat(9).filter(Boolean));
   box.querySelectorAll("[data-say]").forEach(el => out.push(...segs(el)));
   const wa = b.ww || ["G", "S"];
-  for (const w of b.w || []){ out.push(["f", w[0]]); for (const p of w[4]){ out.push(["f", p[0]], ["f", p[2]], [vOf(b, wa[0]), p[0]]); } }
+  for (const w of b.w || []){ out.push(["f", w[0]]); w[4].forEach((p, j) => { out.push(["f", p[0]], ["f", p[2]]); if (!j) out.push([(b.pv && b.pv[(b.w || []).indexOf(w) + ".0"] || [vOf(b, wa[0])])[0], p[0]]); }); }
   return out;
 };
 
@@ -178,7 +179,8 @@ function drawPicker(){
     onclick: () => { ddClose(); go(c); }}, ...lab(c, B[c]))));
 }
 function ddClose(){ $("bselList").hidden = true; $("bselBtn").setAttribute("aria-expanded", "false"); }
-$("bselBtn").addEventListener("click", () => {
+$("bselBtn").addEventListener("click", e => {
+  if (Date.now() - (window.SWIPED_AT || 0) < 600) return;   // the end of a swipe never opens the list
   const l = $("bselList"); if (!l.hidden) return ddClose();
   l.hidden = false; $("bselBtn").setAttribute("aria-expanded", "true");
   const on = l.querySelector('[aria-selected="true"]'); if (on) l.scrollTop = on.offsetTop - l.clientHeight / 2 + on.offsetHeight / 2;
@@ -209,12 +211,13 @@ function wordBox(b, w){
     h("div", null, h("div", {class: "k"}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null, h("div", {class: "m"}, w[2]), w[3] ? h("span", {class: "lvl"}, LV[w[3]] || w[3]) : null),
     h("button", {class: "wrep", type: "button", onclick: ev => playEls([...ev.currentTarget.closest(".word").querySelectorAll("[data-say]")])}, ico("rep"), "단어 반복"));
   const wa = (b.ww || ["G", "S"]);
-  const rows = w[4].map((p, n) => h("div", {class: "line ex pairx", "data-say": p[0], "data-v": vOf(b, wa[0]), "data-say2": p[2], "data-v2": vOf(b, wa[1])},
+  const wi = (b.w || []).indexOf(w);
+  const rows = w[4].map((p, n) => { const pv = (b.pv && b.pv[wi + "." + n]) || [vOf(b, wa[0]), vOf(b, wa[1])]; return h("div", {class: "line ex pairx", "data-say": p[0], "data-v": pv[0], "data-say2": p[2], "data-v2": pv[1]},
     h("div", {class: "exn"}, String(n + 1)), spk(),
     h("div", null,
       h("div", {class: "turn g"}, h("span", {class: "who"}, lbl(b, 0)), h("div", {class: "k"}, b.nohw ? p[0] : hw(p[0], w[0])), h("div", {class: "m"}, p[1])),
       h("div", {class: "turn s"}, h("span", {class: "who"}, lbl(b, 1)), h("div", {class: "k"}, b.nohw ? p[2] : hw(p[2], w[0])), h("div", {class: "m"}, p[3])),
-      gloss(p[4]))));
+      gloss(p[4]))); });
   return h("div", {class: "word"}, head, h("div", {class: "exs"}, rows));
 }
 function dlgBox(b){
@@ -308,7 +311,7 @@ function renderCards(b){
   const wa = b.ww || ["G", "S"];
   return [h("p", {class: "quizp"}, "카드를 누르면 영어 → 뜻과 예문 순서로 들려줘요. 다시 누르면 멈춰요."),
     h("div", {class: "wcards"}, ws.map(w => { const ex = w[4][0];
-      return h("div", {class: "wcard", role: "button", tabindex: "0", "data-say": w[0], "data-ex": ex ? ex[0] : null, "data-exv": vOf(b, wa[0]), onclick: ev => playCard(ev.currentTarget)},
+      return h("div", {class: "wcard", role: "button", tabindex: "0", "data-say": w[0], "data-ex": ex ? ex[0] : null, "data-exv": (b.pv && b.pv[ws.indexOf(w) + ".0"] || [vOf(b, wa[0])])[0], onclick: ev => playCard(ev.currentTarget)},
         h("span", {class: "spk", "aria-hidden": "true"}, ico("spk")),
         h("div", {class: "fr"}, h("div", {class: "k" + (w[0].length > 16 ? " xl" : w[0].length > 11 ? " long" : "")}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null),
         h("div", {class: "bk"}, h("div", {class: "m"}, w[2]), ex ? h("div", {class: "ex"}, h("div", null, ex[0]), h("div", {class: "exm"}, ex[1])) : null)); })),
@@ -405,7 +408,7 @@ function render(){
   const b = B[S.code]; b.code = S.code;
   drawBand(b);
   $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.mode === S.mode ? "true" : "false"));
-  $("rowbtns").hidden = S.mode === "quiz"; $("classRow").hidden = S.mode !== "learn"; $("kbinfo").hidden = S.mode === "quiz";
+  $("ctlrep").hidden = S.mode === "quiz"; $("classRow").hidden = S.mode !== "learn"; $("kbinfo").hidden = S.mode === "quiz";
   const parts = S.mode === "cards" ? renderCards(b) : S.mode === "quiz" ? renderQuiz(b) : renderLearn(b);
   view.replaceChildren(...parts.flat(9).filter(Boolean));
   if (S.mode === "cards") fitWords();
@@ -479,5 +482,21 @@ document.addEventListener("keydown", e => {
   if (e.key === "Enter"){ e.preventDefault(); if (P.mode === "single") return; P.hold = !P.hold; if (P.paused) togglePause(); return; }
   if (e.key === "ArrowRight" || e.key === "ArrowLeft"){ e.preventDefault(); skipBy(e.key === "ArrowRight" ? 1 : -1); }
 });
+/* phone swipe left / right = next / previous bundle, like lao-app v3.26: decided during the move (60px within 1s, sideways 1.5x more than up/down; >40px up/down = scrolling).
+   Left out: screen edges (browser back), menus, the bundle list, the player, form fields, areas that really scroll sideways, and text selection. */
+(function(){ let sx = 0, sy = 0, st = 0, ok = false;
+  const hscroll = el => { for (; el && el !== document.body; el = el.parentElement){ if (el.scrollWidth > el.clientWidth + 4){ const o = getComputedStyle(el).overflowX; if (o === "auto" || o === "scroll") return true; } } return false; };
+  document.addEventListener("touchstart", e => { ok = false; if (e.touches.length !== 1 || query || S.code === "help") return; const t = e.touches[0], w = innerWidth; if (t.clientX < 20 || t.clientX > w - 20) return;
+    const el = e.target; if (el.closest && el.closest("input,select,textarea,#player,#bsel,#groups,#subs,#kbhelp")) return; if (hscroll(el)) return; sx = t.clientX; sy = t.clientY; st = Date.now(); ok = true; }, {passive: true});
+  document.addEventListener("touchmove", e => { if (!ok) return; const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dy) > 40 || Date.now() - st > 1000){ ok = false; return; }
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; ok = false;
+    try { const s = getSelection(); if (s && String(s).length) return; } catch (_) {}
+    const i = at.get(S.code), c = ORDER[i + (dx < 0 ? 1 : -1)]; if (!c) return;
+    window.SWIPED_AT = Date.now(); go(c);
+    const s2 = $("sheet"); if (s2){ s2.style.transition = "none"; s2.style.transform = "translateX(" + (dx < 0 ? 36 : -36) + "px)"; s2.style.opacity = ".4";
+      requestAnimationFrame(() => requestAnimationFrame(() => { s2.style.transition = "transform .2s ease-out,opacity .2s"; s2.style.transform = ""; s2.style.opacity = ""; })); } }, {passive: true});
+  document.addEventListener("touchend", () => { ok = false; }, {passive: true});
+})();
 drawStats();
 if (location.hash && (at.has(decodeURIComponent(location.hash.slice(1))) || location.hash === "#help")) route(); else go(S.code);
