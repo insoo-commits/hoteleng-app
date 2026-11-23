@@ -211,6 +211,7 @@ window.clipsOf = code => {
   const b = B[code]; b.code = code; const out = [];
   const box = h("div", null, renderLearn(b).flat(9).filter(Boolean));
   box.querySelectorAll("[data-say]").forEach(el => out.push(...segs(el)));
+  (b.tq || []).forEach((q, i) => { const t = tqBox(q, i); [t, ...t.querySelectorAll("[data-say]")].forEach(el => { if (el.dataset.say) out.push(...segs(el)); }); });   // every bank question, not only today's draw
   const wa = b.ww || ["G", "S"];
   for (const w of b.w || []){ out.push(["f", w[0]]); w[4].forEach((p, j) => { out.push(["f", p[0]], ["f", p[2]]); if (!j) out.push([(b.pv && b.pv[(b.w || []).indexOf(w) + ".0"] || [vOf(b, wa[0])])[0], p[0]]); }); }
   return out;
@@ -327,7 +328,8 @@ function picBox(k){ const f = h("div", {class: "tpic"}); f.innerHTML = DATA.pics
 function tqBox(q, n){
   /* real test: Part 1 shows the photo only (here a Korean description), Part 2 shows nothing, Part 3·4 print the question and choices but not the script */
   const lis = isLis(q[0]), L = "ABCD", p34 = /^Part [34]/.test(q[0]), p1 = /^Part 1/.test(q[0]);
-  const seq = lis ? tqSeq(q, n) : null, sayTxt = seq ? seq.map(x => x[1]).join(" ") : null;
+  const vn = [...(q[1] + q[2][0])].reduce((a, ch) => a + ch.charCodeAt(0), 0);   // voices follow the question, not its place (random draws)
+  const seq = lis ? tqSeq(q, vn) : null, sayTxt = seq ? seq.map(x => x[1]).join(" ") : null;
   const why = h("p", {class: "twhy", hidden: true});
   const box = h("div", {class: "tq" + (lis ? " lis" : "") + (p34 ? " p34" : ""), "data-say": sayTxt, "data-seq": seq ? JSON.stringify(seq) : null},
     h("div", {class: "tqh"}, h("span", {class: "exn"}, String(n + 1)), h("span", {class: "tpart"}, q[0]), lis ? spk() : null),
@@ -368,12 +370,16 @@ function renderLearn(b){
     tq: () => { const all = b.tq || []; if (!all.length) return null;
       /* question bank (RYU 2026-11-23): TQN questions drawn at random each time; 🔀 draws again */
       const wrap = h("div", {class: "tqwrap"});
+      const shuf = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const partOf = q => q[0].split(" ·")[0];
+      /* 미니 모의고사 (b.tqk): the same number per Part as a real mini test, each drawn from that Part's bank, in Part order */
+      const show = b.tqk ? Object.values(b.tqk).reduce((x, y) => x + y, 0) : TQN;
       const draw = () => { let pick = all.map((q, i) => i);
-        if (all.length > TQN){ for (let i = pick.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
-          pick = pick.slice(0, TQN).sort((x, y) => x - y); }
+        if (b.tqk) pick = Object.keys(b.tqk).sort().flatMap(p => shuf(pick.filter(i => partOf(all[i]) === p)).slice(0, b.tqk[p]).sort((x, y) => x - y));
+        else if (all.length > TQN) pick = shuf(pick).slice(0, TQN).sort((x, y) => x - y);
         wrap.replaceChildren(...pick.map((i, n) => tqBox(all[i], n))); };
       draw();
-      const more = all.length > TQN ? h("button", {class: "wrep hrep", type: "button", onclick: () => { stopPlay(); draw(); }}, "🔀 다른 문제 (" + all.length + "문제 중 " + TQN + ")") : null;
+      const more = all.length > show ? h("button", {class: "wrep hrep", type: "button", onclick: () => { stopPlay(); draw(); }}, "🔀 다른 문제 (" + all.length + "문제 중 " + show + ")") : null;
       return sec(b.tqt || "TOEIC 연계", [more, hasLis ? tShow : null], wrap); }};
   return [(b.ord || ["d", "w", "dr", "sm", "qa", "tq"]).map(k => parts[k]()), relBox(b), pnRow(b.code)];
 }
@@ -507,6 +513,7 @@ function route(){
   if (at.has(c)) S.code = c; else if (c === "help") S.code = HELP0;
   S.lastA[gOf(S.code)] = S.code; S.lastS[sOf(S.code)] = S.code;
   stopPlay(); quiz = null; save();
+  if (query || $("q").value){ query = ""; $("q").value = ""; }   // moving to a bundle ends the search
   drawGroups(); drawSubs(); drawPicker(); render();
   window.scrollTo({top: 0});
 }
@@ -535,7 +542,10 @@ document.addEventListener("click", ev => {
     lineRep(ln); }
 }, true);
 let qt = 0;
-$("q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { query = e.target.value.trim(); stopPlay(); render(); }, 150); });
+/* the box is read when the timer fires (phones with the Korean keyboard can end a composition without one more input event),
+   and clearing it by any means brings the bundle back (RYU 2026-11-23) */
+const qSync = () => { clearTimeout(qt); qt = setTimeout(() => { const v = $("q").value.trim(); if (v === query) return; query = v; stopPlay(); render(); }, 150); };
+for (const ev of ["input", "search", "change", "compositionend", "keyup"]) $("q").addEventListener(ev, qSync);
 /* ---------- keyboard (same keys as lao-app / kor-app, RYU 2026-11-23) ----------
    Space pause / resume (idle: 묶음 재생) · C 연속 재생 · G 묶음 재생 · Esc stop · ← → previous / next line
    , . previous / next bundle · Enter this line without end (∞) · 1-5 횟수 · - = 속도 · Q W E views · ? list of keys.
