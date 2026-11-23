@@ -83,7 +83,7 @@ async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150);
 async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
 function showPlayer(t){ $("player").hidden = false; document.body.classList.add("has-player"); $("pt").textContent = t; }
 function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : "일시정지"; }
-function stopPlay(){ const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
+function stopPlay(){ if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
 function togglePause(){
   if (!P.mode) return;
   P.paused = !P.paused;
@@ -105,7 +105,7 @@ function segs(el){
 const nextCode = () => ORDER[at.get(S.code) + 1];
 function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
-async function playEls(els, chain){
+async function playEls(els, chain, loop){
   stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain ? "seq" : "single";
   let i = 0;
   while (i < els.length){
@@ -127,12 +127,20 @@ async function playEls(els, chain){
     }
     if (P.skip){ i = Math.max(0, Math.min(els.length - 1, i + P.skip)); P.skip = 0; continue; }
     i++;
+    if (loop && i >= els.length){ i = 0; await gap(600); if (!(await waitPause(tok))) return; }   // group repeat: after the last line, back to the first (RYU 2026-11-23)
   }
   if (tok !== P.tok) return;
   if (chain) return chainOn();
   stopPlay();
 }
 /* G: this bundle · C: this bundle and the next ones */
+/* 대화 반복 · 단어 반복 · 문장 반복: the group plays round and round until 정지 (Esc) or a second tap */
+let GRP = null;
+function groupRep(ev, els){
+  const b = ev.currentTarget;
+  if (GRP === b && P.mode){ stopPlay(); return; }
+  playEls(els, false, true); P.mode = "seq"; GRP = b; b.classList.add("on");
+}
 const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
 function playBundle(chain){
   const cr = $("ctlrep");
@@ -220,7 +228,7 @@ const lbl = (b, k) => (b.wl || ["손님", "직원"])[k];
 function wordBox(b, w){
   const head = h("div", {class: "line head", "data-say": w[0], "data-v": "f"}, spk(),
     h("div", null, h("div", {class: "k"}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null, h("div", {class: "m"}, w[2]), w[3] ? h("span", {class: "lvl"}, LV[w[3]] || w[3]) : null),
-    h("button", {class: "wrep", type: "button", onclick: ev => playEls([...ev.currentTarget.closest(".word").querySelectorAll("[data-say]")])}, ico("rep"), "단어 반복"));
+    h("button", {class: "wrep", type: "button", onclick: ev => groupRep(ev, [...ev.currentTarget.closest(".word").querySelectorAll("[data-say]")])}, ico("rep"), "단어 반복"));
   const wa = (b.ww || ["G", "S"]);
   const wi = (b.w || []).indexOf(w);
   const rows = w[4].map((p, n) => { const pv = (b.pv && b.pv[wi + "." + n]) || [vOf(b, wa[0]), vOf(b, wa[1])]; return h("div", {class: "line ex pairx", "data-say": p[0], "data-v": pv[0], "data-say2": p[2], "data-v2": pv[1]},
@@ -238,7 +246,7 @@ function dlgBox(b){
 }
 function drillBox(d){
   return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1]),
-      h("button", {class: "wrep drep", type: "button", onclick: ev => playEls([...ev.currentTarget.closest(".drill").querySelectorAll("[data-say]")])}, ico("rep"), "문장 반복")),
+      h("button", {class: "wrep drep", type: "button", onclick: ev => groupRep(ev, [...ev.currentTarget.closest(".drill").querySelectorAll("[data-say]")])}, ico("rep"), "문장 반복")),
     h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]))))));
 }
 function qaBox(q, n){
@@ -293,7 +301,7 @@ function pnRow(code){
 function renderLearn(b){
   const tShow = h("label", {class: "tshow"}, h("input", {type: "checkbox", id: "tShow", checked: document.body.classList.contains("show-lis") ? true : null,
     onchange: ev => document.body.classList.toggle("show-lis", ev.target.checked)}), "듣기 문제 영어 보기");
-  const dlgRep = h("button", {class: "wrep hrep", type: "button", onclick: () => playEls($$("#view .dlg .line"))}, ico("rep"), "대화 반복");
+  const dlgRep = h("button", {class: "wrep hrep", type: "button", onclick: ev => groupRep(ev, $$("#view .dlg .line"))}, ico("rep"), "대화 반복");
   const hasLis = (b.tq || []).some(q => isLis(q[0]));
   const parts = {
     d: () => sec(b.dt || "대화", (b.d || []).length ? dlgRep : null, (b.d || []).length ? dlgBox(b) : null),
