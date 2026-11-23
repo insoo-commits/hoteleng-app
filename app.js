@@ -296,7 +296,8 @@ function wordBox(b, w){
 function dlgBox(b){
   return h("div", {class: "rows dlg"}, b.d.map((d, n) => h("div", {class: "line " + (MALE.has(d[0]) ? "gu" : "st"), "data-say": d[1], "data-v": vOf(b, d[0])},
     h("div", {class: "exn"}, String(n + 1)), spk(),
-    h("div", null, h("div", {class: "k"}, h("span", {class: "who"}, (b.dn && b.dn[d[0]]) || WHO[d[0]] || d[0]), d[1]), h("div", {class: "m"}, d[2]), gloss(d[3])))));
+    /* speaker label in its own column so the English and Korean lines start at the same place (RYU, like 단어와 예문) */
+    h("div", null, h("div", {class: "turn"}, h("span", {class: "who"}, (b.dn && b.dn[d[0]]) || WHO[d[0]] || d[0]), h("div", {class: "k"}, d[1]), h("div", {class: "m"}, d[2])), gloss(d[3])))));
 }
 function drillBox(d){
   return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1]),
