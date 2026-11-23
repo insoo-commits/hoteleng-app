@@ -72,6 +72,16 @@ function pickVoice(code){
 const vOf = (b, who) => (b && b.vo && b.vo[who]) || (MALE.has(who) ? "m" : "f");
 const clipKey = (t, v) => v + "|" + t.trim();
 const AEL = new Audio();
+/* phones (iPhone above all) only let a page play sound that starts from a tap: the first tap plays a short silent mp3 on the
+   same audio element, so later clips that start after a pause can play too (RYU 2026-11-23: no sound on the phone) */
+const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NYwAAAAAAAAAAAAEluZm8AAAAPAAAABwAAAqwAXl5eXl5eXl5eXl5eXl55eXl5eXl5eXl5eXl5eZSUlJSUlJSUlJSUlJSUr6+vr6+vr6+vr6+vr6+vysrKysrKysrKysrKysrl5eXl5eXl5eXl5eXl5f//////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQEIAAAAAAAAAKsXdbMjQAAAAAAAAAAAAAA//MoxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+let unlocked = false;
+function unlockAudio(){
+  if (unlocked) return; unlocked = true;
+  try { if (!AEL.src || AEL.paused){ AEL.src = SILENT; const pr = AEL.play(); if (pr && pr.catch) pr.catch(() => { unlocked = false; }); } } catch (e) { unlocked = false; }
+  try { if (synth){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } } catch (e) {}
+}
+["touchend", "click", "keydown"].forEach(t => document.addEventListener(t, unlockAudio, {capture: true, passive: true}));
 let P = {tok: 0, mode: null, paused: false, hold: false, skip: 0}, CUR_END = null;
 const gap = ms => new Promise(r => setTimeout(r, ms));
 function quiet(){ if (synth) try { synth.cancel(); if (synth.paused) synth.resume(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
