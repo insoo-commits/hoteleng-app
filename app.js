@@ -365,7 +365,6 @@ function renderCards(b){
         h("span", {class: "spk", "aria-hidden": "true"}, ico("spk")),
         h("div", {class: "fr"}, h("div", {class: "k" + (w[0].length > 16 ? " xl" : w[0].length > 11 ? " long" : "")}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null),
         h("div", {class: "bk"}, h("div", {class: "m"}, w[2]), ex ? h("div", {class: "ex"}, h("div", null, ex[0]), h("div", {class: "exm"}, ex[1])) : null)); })),
-    h("div", {class: "rowbtns", style: "justify-content:center;margin-top:12px"}, h("button", {class: "wrep tbtn", type: "button", onclick: () => playCardsAll()}, ico("rep"), "단어 전체 듣기")),
     pnRow(b.code)];
 }
 async function playCardsAll(chain){
