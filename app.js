@@ -26,13 +26,16 @@ const ORDER = [];             // every bundle code in app order
 G.forEach(g => g[1].forEach(s => s[1].forEach(c => ORDER.push(c))));
 const at = new Map(ORDER.map((c, i) => [c, i]));
 const gOf = c => +c.split("-")[0], sOf = c => c.split("-").slice(0, 2).join("-");
-const HELP = G.length + 1;    // menu number of 도움말
+const HELP = G.length;    // 도움말 is the last menu, with sub-tabs and bundles like the others (kor-app / lao-app)
+const HELP0 = G[HELP - 1][1][0][1][0];
+const isInfo = c => !!(B[c] && B[c].info);
 
 /* ---------- state ---------- */
 const LS = "hoteleng-v2";
 let S = {code: ORDER[0], mode: "learn", rep: 2, rate: 1, lastA: {}, lastS: {}};
 try { Object.assign(S, JSON.parse(localStorage.getItem(LS) || "{}")); } catch (e) {}
-if (!at.has(S.code) && S.code !== "help") S.code = ORDER[0];
+if (S.code === "help") S.code = HELP0;
+if (!at.has(S.code)) S.code = ORDER[0];
 function save(){ try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
 
 /* ---------- sound: own mp3 when the build made one, otherwise the device's English voice ----------
@@ -69,7 +72,7 @@ const clipKey = (t, v) => v + "|" + t.trim();
 const AEL = new Audio();
 let P = {tok: 0, mode: null, paused: false, hold: false, skip: 0}, CUR_END = null;
 const gap = ms => new Promise(r => setTimeout(r, ms));
-function quiet(){ if (synth) try { synth.cancel(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
+function quiet(){ if (synth) try { synth.cancel(); if (synth.paused) synth.resume(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
 function speakOne(text, v){
   return new Promise(res => {
     const done = () => { if (CUR_END === done) CUR_END = null; res(); };
@@ -90,10 +93,11 @@ function speakOne(text, v){
 async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150); return tok === P.tok; }
 async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
 function showPlayer(t){ $("player").hidden = false; document.body.classList.add("has-player"); $("pt").textContent = t; }
-function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : "일시정지"; }
-function stopPlay(){ if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
+function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : P.hold && P.els && P.els.length > 1 && !LINE ? "계속" : "일시정지"; }
+function stopPlay(){ LINE = null; if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
 function togglePause(){
   if (!P.mode) return;
+  if (P.hold && P.els && P.els.length > 1 && !LINE){ P.hold = false; P.skip = 1; if (P.paused){ P.paused = false; } quiet(); pauseLabel(); return; }   // release the held sentence, go on
   P.paused = !P.paused;
   try {
     if (P.paused){ if (AEL.src && !AEL.paused) AEL.pause(); else if (synth) synth.pause(); }
@@ -110,15 +114,16 @@ function segs(el){
   if (el.dataset.say2) out.push([el.dataset.v2 || "f", el.dataset.say2]);
   return out;
 }
-const nextCode = () => ORDER[at.get(S.code) + 1];
+const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) ? c : undefined; };
 function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
 async function playEls(els, chain, loop){
-  stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain ? "seq" : "single";
-  let i = 0;
+  const was = !!P.mode; stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain || loop ? "seq" : "single";
+  if (was){ await gap(150); if (tok !== P.tok) return; }   // speak() right after cancel() is sometimes dropped (Chrome, Safari)
+  let i = 0; P.els = els;
   while (i < els.length){
     if (tok !== P.tok) return;
-    const el = els[i];
+    const el = els[i]; P.i = i;
     $$(".now").forEach(x => x.classList.remove("now")); el.classList.add("now");
     el.scrollIntoView({block: "nearest", behavior: "smooth"});
     const sg = segs(el);
@@ -142,6 +147,21 @@ async function playEls(els, chain, loop){
   stopPlay();
 }
 /* G: this bundle · C: this bundle and the next ones */
+/* a speaker or a tap on a sentence box: that sentence over and over until a second tap or 정지 (RYU 2026-11-23) */
+let LINE = null;
+function lineRep(el){
+  if (LINE === el && P.mode){ stopPlay(); return; }
+  /* like lao-app: while a group or bundle plays, tapping one of its sentences holds that sentence (∞);
+     tapping it again stops, Space lets the group go on from the next sentence */
+  if (P.mode === "seq" && !LINE && P.els && P.els.includes(el) && P.els.length > 1){
+    const idx = P.els.indexOf(el);
+    if (P.hold && P.i === idx){ stopPlay(); return; }
+    P.hold = true; if (P.paused){ P.paused = false; pauseLabel(); }
+    if (idx !== P.i){ P.skip = idx - P.i; P.i = idx; quiet(); }
+    pauseLabel(); return;
+  }
+  playEls([el], false, true); LINE = el;
+}
 /* 대화 반복 · 단어 반복 · 문장 반복: the group plays round and round until 정지 (Esc) or a second tap */
 let GRP = null;
 function groupRep(ev, els){
@@ -152,7 +172,7 @@ function groupRep(ev, els){
 const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
 function playBundle(chain){
   const cr = $("ctlrep");
-  if (query || S.code === "help") return;
+  if (query || isInfo(S.code)) return;
   if (S.mode === "cards"){ playCardsAll(chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle"; return; }
   if (S.mode !== "learn") return;
   const els = bundleEls();
@@ -174,20 +194,19 @@ window.clipsOf = code => {
 /* ---------- header, menus ---------- */
 function drawStats(){
   let w = 0, s = 0;
-  for (const c of ORDER){ const b = B[c]; w += (b.w || []).length; s += (b.w || []).reduce((t, x) => t + x[4].length * 2, 0) + (b.d || []).length + (b.dr || []).reduce((t, x) => t + x[2].length, 0); }
+  const L = ORDER.filter(c => !isInfo(c));
+  for (const c of L){ const b = B[c]; w += (b.w || []).length; s += (b.w || []).reduce((t, x) => t + x[4].length * 2, 0) + (b.d || []).length + (b.dr || []).reduce((t, x) => t + x[2].length, 0); }
   const n = x => Number(x).toLocaleString("en-US");
-  $("stats").replaceChildren(h("span", null, h("b", null, ORDER.length), "묶음"), h("span", null, h("b", null, n(w)), "단어"), h("span", null, h("b", null, n(s)), "문장"));
+  $("stats").replaceChildren(h("span", null, h("b", null, L.length), "묶음"), h("span", null, h("b", null, n(w)), "단어"), h("span", null, h("b", null, n(s)), "문장"));
 }
-const SEP = new Set([1, 7, HELP]);    // | before 기초회화, TOEIC, 도움말 and after 도움말 (RYU)
+const SEP = new Set([1, 7, HELP]);    // | before 기초회화, TOEIC, 도움말 (RYU)
 function drawGroups(){
-  const cur = S.code === "help" ? HELP : gOf(S.code);
+  const cur = gOf(S.code);
   const btns = G.map((g, i) => h("button", {class: "group" + (SEP.has(i + 1) ? " sep" : ""), type: "button", "aria-pressed": cur === i + 1 ? "true" : "false",
     onclick: () => go(S.lastA[i + 1] && at.has(S.lastA[i + 1]) ? S.lastA[i + 1] : g[1][0][1][0])}, h("span", {class: "gn"}, g[0])));
-  btns.push(h("button", {class: "group sep", type: "button", "aria-pressed": cur === HELP ? "true" : "false", onclick: () => go("help")}, h("span", {class: "gn"}, "도움말")));
   $("groups").replaceChildren(h("span", {class: "gsep", "aria-hidden": "true"}), ...btns);
 }
 function drawSubs(){
-  if (S.code === "help"){ $("subs").replaceChildren(); $("sinfo").replaceChildren(h("b", null, "도움말"), " · 앱 쓰는 법"); return; }
   const gi = gOf(S.code), g = G[gi - 1], cur = sOf(S.code);
   $("subs").replaceChildren(...g[1].map((s, j) => { const sc = gi + "-" + String(j + 1).padStart(2, "0");
     return h("button", {class: "sub", type: "button", role: "tab", "aria-selected": sc === cur ? "true" : "false",
@@ -214,9 +233,9 @@ $("bselBtn").addEventListener("click", e => {
 });
 document.addEventListener("click", ev => { if (!ev.target.closest("#bsel")) ddClose(); });
 function drawBand(b){
-  $("bandin").replaceChildren($("bsel"),
+  $("bandin").replaceChildren(...[$("bsel"),
     b.i ? h("p", {class: "intro"}, b.i) : null,
-    b.tp && b.tp.length ? h("div", {class: "tipbox"}, b.tp.map(t => h("p", null, "• " + t))) : null);
+    b.tp && b.tp.length ? h("div", {class: "tipbox"}, b.tp.map(t => h("p", null, "• " + t))) : null].filter(Boolean));
 }
 
 /* ---------- sentence view (문장보기) ---------- */
@@ -278,6 +297,7 @@ function tqSeq(q, n){
   out.push(["m2", q[1]]);
   return out;
 }
+function picBox(k){ const f = h("div", {class: "tpic"}); f.innerHTML = DATA.pics[k]; return f; }   // TOEIC Part 1 drawing (RYU 2026-11-23)
 function tqBox(q, n){
   /* real test: Part 1 shows the photo only (here a Korean description), Part 2 shows nothing, Part 3·4 print the question and choices but not the script */
   const lis = isLis(q[0]), L = "ABCD", p34 = /^Part [34]/.test(q[0]), p1 = /^Part 1/.test(q[0]);
@@ -285,7 +305,8 @@ function tqBox(q, n){
   const why = h("p", {class: "twhy", hidden: true});
   const box = h("div", {class: "tq" + (lis ? " lis" : "") + (p34 ? " p34" : ""), "data-say": sayTxt, "data-seq": seq ? JSON.stringify(seq) : null},
     h("div", {class: "tqh"}, h("span", {class: "exn"}, String(n + 1)), h("span", {class: "tpart"}, q[0]), lis ? spk() : null),
-    p1 && q[1] ? h("p", {class: "tdesc"}, "📷 " + q[1]) : null,
+    p1 && q[1] && DATA.pics && DATA.pics[q[1]] ? [picBox(q[1]), h("details", {class: "tdescd"}, h("summary", null, "사진 설명 보기"), q[1].replace(/^사진:\s*/, ""))]
+      : p1 && q[1] ? h("p", {class: "tdesc"}, "📷 " + q[1]) : null,
     q[5] ? h("p", {class: "tqq tscr"}, q[5]) : null,
     q[1] && !p1 ? h("p", {class: "tqq" + (p34 ? " tqs" : "")}, q[1]) : null,
     lis && n === 0 ? h("p", {class: "tnote"}, "듣기 문제는 시험처럼 영어가 가려져 있어요. 🔊로 듣고 풀어 보세요.") : null,
@@ -410,7 +431,7 @@ let query = "";
 function renderSearch(){
   const q = query.toLowerCase(), hits = [];
   const add = (code, en, ko) => hits.push({code, en, ko});
-  for (const c of ORDER){ const b = B[c];
+  for (const c of ORDER){ const b = B[c]; if (b.info) continue;
     if (b.t.toLowerCase().includes(q) || (b.en || "").toLowerCase().includes(q)) add(c, b.t, b.en || "");
     for (const w of b.w || []){ if (w[0].toLowerCase().includes(q) || w[2].includes(q)) add(c, w[0], w[2]);
       for (const p of w[4]) for (const k of [0, 2]) if (p[k].toLowerCase().includes(q) || p[k + 1].includes(q)) add(c, p[k], p[k + 1]); }
@@ -424,18 +445,18 @@ function renderSearch(){
 }
 
 /* ---------- help ---------- */
-function renderHelp(){
-  const art = h("article", {class: "info"}); art.innerHTML = DATA.help; return [art];
+function renderInfo(b){
+  const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art];
 }
 
 /* ---------- render and routing ---------- */
 function render(){
   const view = $("view");
   if (query){ $("band").hidden = true; $("controls").hidden = true; view.replaceChildren(...renderSearch()); return; }
-  if (S.code === "help"){ $("band").hidden = true; $("controls").hidden = true; view.replaceChildren(...renderHelp()); return; }
-  $("band").hidden = false; $("controls").hidden = false;
   const b = B[S.code]; b.code = S.code;
+  $("band").hidden = false; $("controls").hidden = !!b.info;
   drawBand(b);
+  if (b.info){ view.replaceChildren(...renderInfo(b)); return; }
   $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.mode === S.mode ? "true" : "false"));
   $("ctlrep").hidden = S.mode === "quiz"; $("classRow").hidden = S.mode !== "learn"; $("kbinfo").hidden = S.mode === "quiz";
   const parts = S.mode === "cards" ? renderCards(b) : S.mode === "quiz" ? renderQuiz(b) : renderLearn(b);
@@ -446,10 +467,10 @@ function fitWords(){ $$(".wcard .k").forEach(k => { let fs = parseFloat(getCompu
 function go(code){ if (location.hash === "#" + code) route(); else location.hash = code; }
 function route(){
   const c = decodeURIComponent(location.hash.replace(/^#/, ""));
-  if (at.has(c) || c === "help") S.code = c;
-  if (S.code !== "help"){ S.lastA[gOf(S.code)] = S.code; S.lastS[sOf(S.code)] = S.code; }
+  if (at.has(c)) S.code = c; else if (c === "help") S.code = HELP0;
+  S.lastA[gOf(S.code)] = S.code; S.lastS[sOf(S.code)] = S.code;
   stopPlay(); quiz = null; save();
-  drawGroups(); drawSubs(); if (S.code !== "help") drawPicker(); render();
+  drawGroups(); drawSubs(); drawPicker(); render();
   window.scrollTo({top: 0});
 }
 addEventListener("hashchange", route);
@@ -466,7 +487,13 @@ document.addEventListener("click", ev => {
   const b = ev.target.closest("button");
   const bl = ev.target.closest("#view .m, #view .k, #view .gm, #view .a, #view .tqq, #view .ot");
   if (bl && !(b && !b.classList.contains("topt")) && getComputedStyle(bl).filter !== "none"){ bl.classList.toggle("show"); ev.stopPropagation(); ev.preventDefault(); return; }
-  if (b && b.classList.contains("spk") && !b.closest(".wcard")){ const el = b.closest("[data-say]"); if (el){ if (el.classList.contains("now") && P.mode === "single") stopPlay(); else playEls([el]); } }
+  if (b && b.classList.contains("spk") && !b.closest(".wcard")){ const el = b.closest("[data-say]"); if (el) lineRep(el); return; }
+  if (b || ev.target.closest("a, input, select, label, .topts, .qa, .tq")) return;
+  const ln = ev.target.closest("#view .line[data-say]");
+  if (ln){ try { if (String(getSelection())) return; } catch (e) {}
+    const wr = ln.classList.contains("head") && ln.querySelector(".wrep");   // the word's own line = 단어 반복, like lao-app
+    if (wr){ wr.click(); return; }
+    lineRep(ln); }
 }, true);
 let qt = 0;
 $("q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { query = e.target.value.trim(); stopPlay(); render(); }, 150); });
@@ -494,7 +521,8 @@ document.addEventListener("keydown", e => {
   const is = (code, ...ks) => c === code || ks.includes(k);
   if (e.key === "?" || (c === "Slash" && e.shiftKey)){ e.preventDefault(); keyHelp(); return; }
   if (e.key === "Escape"){ if (P.mode){ e.preventDefault(); stopPlay(); } return; }
-  if (query || S.code === "help") return;
+  if (query) return;
+  if (isInfo(S.code) && !/^(Arrow|[<>,.?]|Escape)/.test(e.key)) return;
   if (is("Comma", ",", "<") || is("Period", ".", ">")){
     e.preventDefault(); const i = at.get(S.code), d = is("Period", ".", ">") ? 1 : -1;
     go(ORDER[(i + d + ORDER.length) % ORDER.length]); return; }
@@ -515,7 +543,7 @@ document.addEventListener("keydown", e => {
    Left out: screen edges (browser back), menus, the bundle list, the player, form fields, areas that really scroll sideways, and text selection. */
 (function(){ let sx = 0, sy = 0, st = 0, ok = false;
   const hscroll = el => { for (; el && el !== document.body; el = el.parentElement){ if (el.scrollWidth > el.clientWidth + 4){ const o = getComputedStyle(el).overflowX; if (o === "auto" || o === "scroll") return true; } } return false; };
-  document.addEventListener("touchstart", e => { ok = false; if (e.touches.length !== 1 || query || S.code === "help") return; const t = e.touches[0], w = innerWidth; if (t.clientX < 20 || t.clientX > w - 20) return;
+  document.addEventListener("touchstart", e => { ok = false; if (e.touches.length !== 1 || query) return; const t = e.touches[0], w = innerWidth; if (t.clientX < 20 || t.clientX > w - 20) return;
     const el = e.target; if (el.closest && el.closest("input,select,textarea,#player,#bsel,#groups,#subs,#kbhelp")) return; if (hscroll(el)) return; sx = t.clientX; sy = t.clientY; st = Date.now(); ok = true; }, {passive: true});
   document.addEventListener("touchmove", e => { if (!ok) return; const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
     if (Math.abs(dy) > 40 || Date.now() - st > 1000){ ok = false; return; }
