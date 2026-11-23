@@ -29,61 +29,119 @@ const gOf = c => +c.split("-")[0], sOf = c => c.split("-").slice(0, 2).join("-")
 const HELP = G.length + 1;    // menu number of 도움말
 
 /* ---------- state ---------- */
-const LS = "hoteleng-v1";
-let S = {code: ORDER[0], mode: "learn", rep: 1, rate: 1, lastA: {}, lastS: {}};
+const LS = "hoteleng-v2";
+let S = {code: ORDER[0], mode: "learn", rep: 2, rate: 1, lastA: {}, lastS: {}};
 try { Object.assign(S, JSON.parse(localStorage.getItem(LS) || "{}")); } catch (e) {}
 if (!at.has(S.code) && S.code !== "help") S.code = ORDER[0];
 function save(){ try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
 
-/* ---------- sound: own mp3 when the build made one, otherwise the device's English voice ---------- */
+/* ---------- sound: own mp3 when the build made one, otherwise the device's English voice ----------
+   voice codes: m = man (guest, A, interviewer), f = woman (staff, B, candidate, words), f2 / m2 = a second woman / man.
+   A bundle's vo map sets a speaker's voice, e.g. {"G": "f2"} when the guest is a woman (RYU 2026-11-23). */
 const synth = window.speechSynthesis;
 let voices = [];
 const loadVoices = () => { if (synth) voices = synth.getVoices().filter(v => /^en[-_](US|GB|AU|CA)/i.test(v.lang)); };
 if (synth){ loadVoices(); synth.onvoiceschanged = loadVoices; }
-function pickVoice(male){
+function pickVoice(code){
   const us = voices.filter(v => /en[-_]US/i.test(v.lang)), v = us.length ? us : voices;
   if (!v.length) return null;
-  const f = v.find(x => /female|samantha|jenny|aria|zira|ava|allison|susan|karen/i.test(x.name)),
-        m = v.find(x => /\bmale|guy|david|alex|daniel|fred|tom|aaron|mark/i.test(x.name) && !/female/i.test(x.name));
-  return male ? (m || v[0]) : (f || v[0]);
+  const fem = v.filter(x => /female|samantha|jenny|aria|zira|ava|allison|susan|karen|emma|michelle/i.test(x.name)),
+        mal = v.filter(x => /\bmale|guy|david|alex|daniel|fred|tom|aaron|mark|andrew|brian|christopher|eric/i.test(x.name) && !/female/i.test(x.name));
+  const L = code[0] === "m" ? mal : fem;
+  return L[code[1] === "2" ? 1 : 0] || L[0] || v[0];
 }
-const clipKey = (t, male) => (male ? "m|" : "f|") + t.trim();
+const vOf = (b, who) => (b && b.vo && b.vo[who]) || (MALE.has(who) ? "m" : "f");
+const clipKey = (t, v) => v + "|" + t.trim();
 const AEL = new Audio();
-let P = {tok: 0}, CUR_END = null;
+let P = {tok: 0, mode: null, paused: false, hold: false, skip: 0}, CUR_END = null;
 const gap = ms => new Promise(r => setTimeout(r, ms));
 function quiet(){ if (synth) try { synth.cancel(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
-function speakOne(text, male){
+function speakOne(text, v){
   return new Promise(res => {
-    const done = () => { if (CUR_END === done){ CUR_END = null; } res(); };
+    const done = () => { if (CUR_END === done) CUR_END = null; res(); };
     CUR_END = done;
-    const src = AUD[clipKey(text, male)];
-    if (src){ AEL.src = src; AEL.playbackRate = S.rate; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
+    const src = AUD[clipKey(text, v)];
+    if (src){ AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
     if (!synth){ setTimeout(done, 400); return; }
-    const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = S.rate;
-    const v = pickVoice(male); if (v) u.voice = v;
+    const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = +S.rate || 1;
+    const vc = pickVoice(v); if (vc) u.voice = vc;
     u.onend = u.onerror = done; synth.speak(u);
   });
 }
-async function say(tok, text, male){ if (tok !== P.tok) return false; await speakOne(text, male); return tok === P.tok; }
+async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150); return tok === P.tok; }
+async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
 function showPlayer(t){ $("player").hidden = false; document.body.classList.add("has-player"); $("pt").textContent = t; }
-function stopPlay(){ P.tok++; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); }
-/* an element plays its data-say (who in data-who), then data-say2 (the second speaker) */
-async function playEls(els){
-  stopPlay(); const tok = ++P.tok;
-  for (const el of els){
+function pauseLabel(){ const b = $("ppause"); if (b) b.querySelector(".bt").textContent = P.paused ? "재개" : "일시정지"; }
+function stopPlay(){ P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
+function togglePause(){
+  if (!P.mode) return;
+  P.paused = !P.paused;
+  try {
+    if (P.paused){ if (AEL.src && !AEL.paused) AEL.pause(); else if (synth) synth.pause(); }
+    else { if (AEL.src && AEL.paused && CUR_END && !AEL.ended) AEL.play().catch(() => {}); if (synth) synth.resume(); }
+  } catch (e) {}
+  pauseLabel();
+}
+/* ← →: previous / next line while a bundle plays */
+function skipBy(d){ if (P.mode !== "seq") return; P.hold = false; P.skip = d; if (P.paused){ P.paused = false; pauseLabel(); } quiet(); }
+/* what one element says, in order: [[voice, text], …] */
+function segs(el){
+  if (el.dataset.seq) return JSON.parse(el.dataset.seq);
+  const out = [[el.dataset.v || "f", el.dataset.say]];
+  if (el.dataset.say2) out.push([el.dataset.v2 || "f", el.dataset.say2]);
+  return out;
+}
+const nextCode = () => ORDER[at.get(S.code) + 1];
+function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
+/* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
+async function playEls(els, chain){
+  stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain ? "seq" : "single";
+  let i = 0;
+  while (i < els.length){
     if (tok !== P.tok) return;
+    const el = els[i];
     $$(".now").forEach(x => x.classList.remove("now")); el.classList.add("now");
     el.scrollIntoView({block: "nearest", behavior: "smooth"});
-    for (let i = 0; i < S.rep; i++){
-      showPlayer((S.rep > 1 ? (i + 1) + "/" + S.rep + " · " : "") + el.dataset.say);
-      if (!(await say(tok, el.dataset.say, MALE.has(el.dataset.who || "S")))) return;
-      if (el.dataset.say2){ await gap(250); showPlayer(el.dataset.say2); if (!(await say(tok, el.dataset.say2, MALE.has(el.dataset.who2 || "S")))) return; }
-      await gap(450);
+    const sg = segs(el);
+    for (let k = 0; P.hold || k < (+S.rep || 1); k++){
+      for (let j = 0; j < sg.length; j++){
+        showPlayer((P.hold ? "∞ · " : +S.rep > 1 ? (k % +S.rep + 1) + "/" + S.rep + " · " : "") + sg[j][1]);
+        if (!(await say(tok, sg[j][1], sg[j][0]))) return;
+        if (P.skip) break;
+        if (j < sg.length - 1){ await gap(300); if (!(await waitPause(tok))) return; }
+      }
+      if (P.skip) break;
+      await gap(450); if (!(await waitPause(tok))) return;
+      if (P.skip) break;
     }
+    if (P.skip){ i = Math.max(0, Math.min(els.length - 1, i + P.skip)); P.skip = 0; continue; }
+    i++;
   }
-  if (tok === P.tok) stopPlay();
+  if (tok !== P.tok) return;
+  if (chain) return chainOn();
+  stopPlay();
+}
+/* G: this bundle · C: this bundle and the next ones */
+const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
+function playBundle(chain){
+  if (query || S.code === "help") return;
+  if (S.mode === "cards") return playCardsAll(chain);
+  if (S.mode !== "learn") return;
+  const els = bundleEls();
+  if (!els.length){ if (chain) chainOn(); return; }
+  playEls(els, chain);
 }
 $("pstop").addEventListener("click", stopPlay);
+$("ppause").addEventListener("click", togglePause);
+/* for make_audio: every [voice, text] this bundle can say */
+window.clipsOf = code => {
+  const b = B[code]; b.code = code; const out = [];
+  const box = h("div", null, renderLearn(b).flat(9).filter(Boolean));
+  box.querySelectorAll("[data-say]").forEach(el => out.push(...segs(el)));
+  const wa = b.ww || ["G", "S"];
+  for (const w of b.w || []){ out.push(["f", w[0]]); for (const p of w[4]){ out.push(["f", p[0]], ["f", p[2]], [vOf(b, wa[0]), p[0]]); } }
+  return out;
+};
 
 /* ---------- header, menus ---------- */
 function drawStats(){
@@ -147,11 +205,11 @@ const gloss = g => g && g.length ? h("div", {class: "gl"}, "※ ", g.flatMap((x,
 const sec = (title, extra, ...kids) => kids.flat(9).filter(Boolean).length ? h("section", {class: "sec"}, h("h3", null, title, extra), kids) : null;
 const lbl = (b, k) => (b.wl || ["손님", "직원"])[k];
 function wordBox(b, w){
-  const head = h("div", {class: "line head", "data-say": w[0], "data-who": "S"}, spk(),
+  const head = h("div", {class: "line head", "data-say": w[0], "data-v": "f"}, spk(),
     h("div", null, h("div", {class: "k"}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null, h("div", {class: "m"}, w[2]), w[3] ? h("span", {class: "lvl"}, LV[w[3]] || w[3]) : null),
     h("button", {class: "wrep", type: "button", onclick: ev => playEls([...ev.currentTarget.closest(".word").querySelectorAll("[data-say]")])}, ico("rep"), "단어 반복"));
   const wa = (b.ww || ["G", "S"]);
-  const rows = w[4].map((p, n) => h("div", {class: "line ex pairx", "data-say": p[0], "data-who": wa[0], "data-say2": p[2], "data-who2": wa[1]},
+  const rows = w[4].map((p, n) => h("div", {class: "line ex pairx", "data-say": p[0], "data-v": vOf(b, wa[0]), "data-say2": p[2], "data-v2": vOf(b, wa[1])},
     h("div", {class: "exn"}, String(n + 1)), spk(),
     h("div", null,
       h("div", {class: "turn g"}, h("span", {class: "who"}, lbl(b, 0)), h("div", {class: "k"}, b.nohw ? p[0] : hw(p[0], w[0])), h("div", {class: "m"}, p[1])),
@@ -160,13 +218,13 @@ function wordBox(b, w){
   return h("div", {class: "word"}, head, h("div", {class: "exs"}, rows));
 }
 function dlgBox(b){
-  return h("div", {class: "rows dlg"}, b.d.map((d, n) => h("div", {class: "line " + (MALE.has(d[0]) ? "gu" : "st"), "data-say": d[1], "data-who": d[0]},
+  return h("div", {class: "rows dlg"}, b.d.map((d, n) => h("div", {class: "line " + (MALE.has(d[0]) ? "gu" : "st"), "data-say": d[1], "data-v": vOf(b, d[0])},
     h("div", {class: "exn"}, String(n + 1)), spk(),
     h("div", null, h("div", {class: "k"}, h("span", {class: "who"}, (b.dn && b.dn[d[0]]) || WHO[d[0]] || d[0]), d[1]), h("div", {class: "m"}, d[2]), gloss(d[3])))));
 }
 function drillBox(d){
   return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1])),
-    h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-who": "S"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]))))));
+    h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]))))));
 }
 function qaBox(q, n){
   const a = h("div", {class: "a", hidden: true}, q[1]);
@@ -175,12 +233,25 @@ function qaBox(q, n){
 }
 /* TOEIC: [part, question, [choices], answer index, explanation, script?]  Part 1–4 are listening: text hidden until 듣기 문제 영어 보기 */
 const isLis = p => /^Part [1-4]/.test(p);
+/* voices like the test: Part 1 one voice; Part 2 question and answers in different voices;
+   Part 3 M: man, W: woman; Part 4 one speaker; the question of Part 3·4 read by a narrator (m2). Voices take turns by question number. */
+function tqSeq(q, n){
+  const L = "ABCD", a = n % 2 ? "f" : "m", o = a === "m" ? "f" : "m", p = q[0].match(/^Part (\d)/)[1];
+  if (p === "1") return [[a, q[5] || q[2].map((c, j) => "(" + L[j] + ") " + c).join(" ")]];
+  if (p === "2") return q[5] ? [[a, q[5]]] : [[a, q[1]], [o, q[2].map((c, j) => L[j] + ". " + c).join(" ")]];
+  const out = [];
+  if (p === "3") for (const ln of (q[5] || "").split("\n").map(x => x.trim()).filter(Boolean)){
+    const m = ln.match(/^([MW])\d?:\s*(.*)$/); out.push(m ? [m[1] === "M" ? "m" : "f", m[2]] : [a, ln]); }
+  else if (q[5]) out.push([a, q[5]]);
+  out.push(["m2", q[1]]);
+  return out;
+}
 function tqBox(q, n){
   /* real test: Part 1 shows the photo only (here a Korean description), Part 2 shows nothing, Part 3·4 print the question and choices but not the script */
   const lis = isLis(q[0]), L = "ABCD", p34 = /^Part [34]/.test(q[0]), p1 = /^Part 1/.test(q[0]);
-  const sayTxt = p34 ? q[5] + " " + q[1] : q[5] ? q[5] : q[1] + " " + q[2].map((c, j) => L[j] + ". " + c).join(" ");
+  const seq = lis ? tqSeq(q, n) : null, sayTxt = seq ? seq.map(x => x[1]).join(" ") : null;
   const why = h("p", {class: "twhy", hidden: true});
-  const box = h("div", {class: "tq" + (lis ? " lis" : "") + (p34 ? " p34" : ""), "data-say": lis ? sayTxt : null, "data-who": "A"},
+  const box = h("div", {class: "tq" + (lis ? " lis" : "") + (p34 ? " p34" : ""), "data-say": sayTxt, "data-seq": seq ? JSON.stringify(seq) : null},
     h("div", {class: "tqh"}, h("span", {class: "exn"}, String(n + 1)), h("span", {class: "tpart"}, q[0]), lis ? spk() : null),
     p1 && q[1] ? h("p", {class: "tdesc"}, "📷 " + q[1]) : null,
     q[5] ? h("p", {class: "tqq tscr"}, q[5]) : null,
@@ -201,8 +272,8 @@ function relBox(b){
 function pnRow(code){
   const i = at.get(code), pv = ORDER[i - 1], nx = ORDER[i + 1];
   return h("div", {class: "pnrow"},
-    pv ? h("button", {class: "pn pv", type: "button", onclick: () => go(pv)}, h("b", null, "← 이전 묶음"), h("small", null, "[" + pv + "] " + B[pv].t)) : h("span"),
-    nx ? h("button", {class: "pn nx", type: "button", onclick: () => go(nx)}, h("b", null, "다음 묶음 →"), h("small", null, "[" + nx + "] " + B[nx].t)) : h("span"));
+    pv ? h("button", {class: "pn pv", type: "button", onclick: () => go(pv)}, h("b", null, h("kbd", {class: "kc"}, "<"), "← 이전 묶음"), h("small", null, "[" + pv + "] " + B[pv].t)) : h("span"),
+    nx ? h("button", {class: "pn nx", type: "button", onclick: () => go(nx)}, h("b", null, "다음 묶음 →", h("kbd", {class: "kc"}, ">")), h("small", null, "[" + nx + "] " + B[nx].t)) : h("span"));
 }
 function renderLearn(b){
   const tShow = h("label", {class: "tshow"}, h("input", {type: "checkbox", id: "tShow", checked: document.body.classList.contains("show-lis") ? true : null,
@@ -225,8 +296,8 @@ async function playCard(c){
   stopPlay(); const tok = ++P.tok; c.classList.add("now");
   for (let k = 0; k < S.rep && tok === P.tok; k++){
     c.classList.remove("back"); showPlayer(c.dataset.say);
-    if (!(await say(tok, c.dataset.say, false))) return; await gap(300);
-    c.classList.add("back"); if (c.dataset.ex){ if (!(await say(tok, c.dataset.ex, c.dataset.exm === "1"))) return; } else await gap(1200);
+    if (!(await say(tok, c.dataset.say, "f"))) return; await gap(300);
+    c.classList.add("back"); if (c.dataset.ex){ if (!(await say(tok, c.dataset.ex, c.dataset.exv))) return; } else await gap(1200);
     await gap(500);
   }
   if (tok === P.tok){ stopPlay(); }
@@ -237,21 +308,30 @@ function renderCards(b){
   const wa = b.ww || ["G", "S"];
   return [h("p", {class: "quizp"}, "카드를 누르면 영어 → 뜻과 예문 순서로 들려줘요. 다시 누르면 멈춰요."),
     h("div", {class: "wcards"}, ws.map(w => { const ex = w[4][0];
-      return h("div", {class: "wcard", role: "button", tabindex: "0", "data-say": w[0], "data-ex": ex ? ex[0] : null, "data-exm": ex && MALE.has(wa[0]) ? "1" : "0", onclick: ev => playCard(ev.currentTarget)},
+      return h("div", {class: "wcard", role: "button", tabindex: "0", "data-say": w[0], "data-ex": ex ? ex[0] : null, "data-exv": vOf(b, wa[0]), onclick: ev => playCard(ev.currentTarget)},
         h("span", {class: "spk", "aria-hidden": "true"}, ico("spk")),
         h("div", {class: "fr"}, h("div", {class: "k" + (w[0].length > 16 ? " xl" : w[0].length > 11 ? " long" : "")}, w[0]), w[1] ? h("div", {class: "p"}, w[1]) : null),
         h("div", {class: "bk"}, h("div", {class: "m"}, w[2]), ex ? h("div", {class: "ex"}, h("div", null, ex[0]), h("div", {class: "exm"}, ex[1])) : null)); })),
     h("div", {class: "rowbtns", style: "justify-content:center;margin-top:12px"}, h("button", {class: "wrep tbtn", type: "button", onclick: () => playCardsAll()}, ico("rep"), "단어 전체 듣기")),
     pnRow(b.code)];
 }
-async function playCardsAll(){
-  stopPlay(); const tok = ++P.tok;
-  for (const c of $$("#view .wcard")){
-    if (tok !== P.tok) return; $$(".now").forEach(x => x.classList.remove("now")); c.classList.add("now"); c.scrollIntoView({block: "nearest", behavior: "smooth"});
-    for (let k = 0; k < S.rep; k++){ c.classList.remove("back"); showPlayer(c.dataset.say); if (!(await say(tok, c.dataset.say, false))) return; await gap(700); c.classList.add("back"); await gap(1100); }
+async function playCardsAll(chain){
+  stopPlay(); const tok = ++P.tok; P.mode = "seq"; const cs = $$("#view .wcard"); let i = 0;
+  while (i < cs.length){
+    if (tok !== P.tok) return; const c = cs[i];
+    $$(".now").forEach(x => x.classList.remove("now")); c.classList.add("now"); c.scrollIntoView({block: "nearest", behavior: "smooth"});
+    for (let k = 0; P.hold || k < (+S.rep || 1); k++){
+      c.classList.remove("back"); showPlayer((P.hold ? "∞ · " : "") + c.dataset.say);
+      if (!(await say(tok, c.dataset.say, "f"))) return; if (P.skip) break;
+      await gap(700); c.classList.add("back"); await gap(1100); if (!(await waitPause(tok))) return; if (P.skip) break;
+    }
     c.classList.remove("back");
+    if (P.skip){ i = Math.max(0, Math.min(cs.length - 1, i + P.skip)); P.skip = 0; continue; }
+    i++;
   }
-  if (tok === P.tok) stopPlay();
+  if (tok !== P.tok) return;
+  if (chain) return chainOn();
+  stopPlay();
 }
 
 /* ---------- review quiz (복습퀴즈): 10 questions from the bundle's words ---------- */
@@ -282,13 +362,13 @@ function renderQuiz(b){
   if (quiz.at >= quiz.qs.length) return [h("p", {class: "quizp"}, "점수"), h("div", {class: "score"}, quiz.right + " / " + quiz.qs.length),
     h("div", {class: "rowbtns", style: "justify-content:center"}, h("button", {class: "btn primary", type: "button", onclick: () => { stopPlay(); quiz = null; render(); }}, "다시 풀기")), pnRow(b.code)];
   const q = quiz.qs[quiz.at];
-  const head = q.kind === "listen" ? h("div", {class: "quizq listen", "data-say": q.it.en, "data-who": "S"}, h("button", {class: "btn primary", type: "button", onclick: ev => playEls([ev.currentTarget.parentNode])}, ico("spk"), " 듣기"))
+  const head = q.kind === "listen" ? h("div", {class: "quizq listen", "data-say": q.it.en, "data-v": "f"}, h("button", {class: "btn primary", type: "button", onclick: ev => playEls([ev.currentTarget.parentNode])}, ico("spk"), " 듣기"))
     : q.kind === "blank" ? h("div", {class: "quizq qblank"}, h("div", {class: "qen"}, q.blank.pre, h("span", {class: "blank"}, "?"), q.blank.post), h("div", {class: "qlo"}, q.blank.ko))
     : q.kind === "mean" ? h("div", {class: "quizq qen"}, q.it.en) : h("div", {class: "quizq"}, q.it.ko);
   const lab = {mean: "뜻을 고르세요", en: "영어를 고르세요", listen: "듣고 뜻을 고르세요", blank: "빈칸에 알맞은 말을 고르세요"}[q.kind];
   return [h("div", null, head, h("p", {class: "quizp"}, lab + " · " + (quiz.at + 1) + " / " + quiz.qs.length)),
     h("div", {class: "choices"}, q.opts.map(o => h("button", {class: "choice" + (q.key === "en" ? " qen" : "") + (q.picked != null ? (o === q.a ? " right" : o === q.picked ? " wrong" : "") : ""), type: "button", disabled: q.picked != null,
-      onclick: () => { q.picked = o; if (o === q.a) quiz.right++; render(); stopPlay(); const tok = ++P.tok; say(tok, q.kind === "blank" ? q.blank.full : q.it.en, false); }}, o))),
+      onclick: () => { q.picked = o; if (o === q.a) quiz.right++; render(); stopPlay(); const tok = ++P.tok; say(tok, q.kind === "blank" ? q.blank.full : q.it.en, "f"); }}, o))),
     q.picked != null ? h("div", {class: "rowbtns", style: "justify-content:flex-end"}, h("button", {class: "btn primary", type: "button", onclick: () => {
       stopPlay(); quiz.at++; render(); const nq = quiz.qs[quiz.at], el = document.querySelector(".quizq.listen"); if (nq && nq.kind === "listen" && el) playEls([el]); }}, "다음 →")) : null];
 }
@@ -325,7 +405,7 @@ function render(){
   const b = B[S.code]; b.code = S.code;
   drawBand(b);
   $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.mode === S.mode ? "true" : "false"));
-  $("playAll").hidden = S.mode !== "learn"; $("classRow").hidden = S.mode !== "learn";
+  $("rowbtns").hidden = S.mode === "quiz"; $("classRow").hidden = S.mode !== "learn"; $("kbinfo").hidden = S.mode === "quiz";
   const parts = S.mode === "cards" ? renderCards(b) : S.mode === "quiz" ? renderQuiz(b) : renderLearn(b);
   view.replaceChildren(...parts.flat(9).filter(Boolean));
   if (S.mode === "cards") fitWords();
@@ -344,8 +424,9 @@ addEventListener("hashchange", route);
 $$(".seg button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.mode; stopPlay(); save(); render(); }));
 $("repSel").value = S.rep; $("rateSel").value = S.rate;
 $("repSel").onchange = e => { S.rep = +e.target.value; save(); };
-$("rateSel").onchange = e => { S.rate = +e.target.value; save(); };
-$("playAll").addEventListener("click", () => playEls($$("#view [data-say]").filter(x => !x.closest(".tq"))));
+$("rateSel").onchange = e => { S.rate = +e.target.value; save(); try { AEL.playbackRate = +S.rate || 1; } catch (er) {} };
+$("playAll").addEventListener("click", () => playBundle(false));
+$("playCont").addEventListener("click", () => playBundle(true));
 for (const [id, c] of [["tKo", "hide-ko"], ["tEn", "hide-en"], ["tSt", "hide-st"]])
   $(id).onchange = e => { document.body.classList.toggle(c, e.target.checked); $$("#view .show").forEach(x => x.classList.remove("show")); };
 /* tapping a hidden (blurred) text shows it; tapping a line plays it */
@@ -353,10 +434,50 @@ document.addEventListener("click", ev => {
   const b = ev.target.closest("button");
   const bl = ev.target.closest("#view .m, #view .k, #view .gm, #view .a, #view .tqq, #view .ot");
   if (bl && !(b && !b.classList.contains("topt")) && getComputedStyle(bl).filter !== "none"){ bl.classList.toggle("show"); ev.stopPropagation(); ev.preventDefault(); return; }
-  if (b && b.classList.contains("spk") && !b.closest(".wcard")){ const el = b.closest("[data-say]"); if (el) playEls([el]); }
+  if (b && b.classList.contains("spk") && !b.closest(".wcard")){ const el = b.closest("[data-say]"); if (el){ if (el.classList.contains("now") && P.mode === "single") stopPlay(); else playEls([el]); } }
 }, true);
 let qt = 0;
 $("q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { query = e.target.value.trim(); stopPlay(); render(); }, 150); });
-document.addEventListener("keydown", e => { if (e.key === "Escape"){ stopPlay(); ddClose(); } });
+/* ---------- keyboard (same keys as lao-app / kor-app, RYU 2026-11-23) ----------
+   Space pause / resume (idle: 묶음 재생) · C 연속 재생 · G 묶음 재생 · Esc stop · ← → previous / next line
+   , . previous / next bundle · Enter this line without end (∞) · 1-5 횟수 · - = 속도 · Q W E views · ? list of keys.
+   Keys go by e.code too, so they work with the Korean keyboard on. */
+const KEYS = [["Space", "일시정지 · 재개 (멈춰 있으면 묶음 듣기)"], ["C", "연속 듣기 (이 묶음부터 다음 묶음으로)"], ["G", "묶음 전체 듣기"], ["Esc", "정지"],
+  ["← →", "이전 · 다음 문장"], ["< >  (, .)", "이전 · 다음 묶음"], ["Enter", "지금 문장 무한 반복 · 끄기"], ["1 ~ 5", "반복 횟수"], ["-  =", "느리게 · 빠르게"],
+  ["Q W E", "문장보기 · 주요단어 · 복습퀴즈"], ["?", "단축키 목록 열기 · 닫기"]];
+function keyHelp(){
+  const box = h("div", {id: "kbhelp", onclick: () => box.remove()},
+    h("div", {class: "kbcard"}, h("b", null, "키보드 단축키"),
+      h("table", null, KEYS.map(r => h("tr", null, h("td", null, h("kbd", null, r[0])), h("td", null, r[1]))))));
+  document.body.appendChild(box);
+}
+const setSel = (id, i) => { const r = $(id); if (!r || i < 0 || i >= r.options.length || i === r.selectedIndex) return; r.selectedIndex = i; r.dispatchEvent(new Event("change", {bubbles: true})); };
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target, tn = t && t.tagName;
+  if (tn === "INPUT" || tn === "TEXTAREA" || tn === "SELECT" || (t && t.isContentEditable)){ if (e.key === "Escape" && t.id === "q"){ t.blur(); } return; }
+  const hp = $("kbhelp"); if (hp){ hp.remove(); e.preventDefault(); return; }
+  if (e.key === "Escape") ddClose();
+  const c = e.code, k = (e.key || "").toLowerCase();
+  const is = (code, ...ks) => c === code || ks.includes(k);
+  if (e.key === "?" || (c === "Slash" && e.shiftKey)){ e.preventDefault(); keyHelp(); return; }
+  if (e.key === "Escape"){ if (P.mode){ e.preventDefault(); stopPlay(); } return; }
+  if (query || S.code === "help") return;
+  if (is("Comma", ",", "<") || is("Period", ".", ">")){
+    e.preventDefault(); const i = at.get(S.code), d = is("Period", ".", ">") ? 1 : -1;
+    go(ORDER[(i + d + ORDER.length) % ORDER.length]); return; }
+  if (is("KeyQ", "q", "ㅂ") || is("KeyW", "w", "ㅈ") || is("KeyE", "e", "ㄷ")){
+    e.preventDefault(); $(is("KeyQ", "q", "ㅂ") ? "m-learn" : is("KeyW", "w", "ㅈ") ? "m-cards" : "m-quiz").click(); return; }
+  if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); playBundle(true); return; }
+  if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); if (P.mode === "seq") stopPlay(); else playBundle(false); return; }
+  if (/^Digit[1-5]$/.test(c) || /^[1-5]$/.test(e.key)){ e.preventDefault(); setSel("repSel", +(e.key.match(/[1-5]/) || c.slice(-1))[0] - 1); return; }
+  if (is("Minus", "-", "_") || is("Equal", "=", "+")){ e.preventDefault(); const r = $("rateSel"); setSel("rateSel", r.selectedIndex + (is("Equal", "=", "+") ? 1 : -1)); return; }
+  if (c === "Space" || e.key === " "){
+    if (P.mode){ e.preventDefault(); togglePause(); return; }
+    if (tn !== "BUTTON" && tn !== "A"){ e.preventDefault(); playBundle(false); } return; }
+  if (!P.mode) return;
+  if (e.key === "Enter"){ e.preventDefault(); if (P.mode === "single") return; P.hold = !P.hold; if (P.paused) togglePause(); return; }
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft"){ e.preventDefault(); skipBy(e.key === "ArrowRight" ? 1 : -1); }
+});
 drawStats();
 if (location.hash && (at.has(decodeURIComponent(location.hash.slice(1))) || location.hash === "#help")) route(); else go(S.code);
