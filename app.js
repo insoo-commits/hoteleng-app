@@ -45,7 +45,7 @@ if (synth){ loadVoices(); synth.onvoiceschanged = loadVoices; }
 /* device voices: a man's voice for m, a woman's for f (US first, then any English); a second voice for m2 / f2.
    When the device has no man's voice (e.g. only "Google US English"), the pitch is lowered so A and B still sound different. */
 const FEM_RE = /female|samantha|jenny|aria|zira|ava|allison|susan|karen|emma|michelle|victoria|moira|tessa|fiona|serena|nicky|joelle|kathy|shelley|sandy|flo|google us english|libby|sonia|natasha|hazel|catherine/i,
-      MAL_RE = /\bmale\b|guy|david|alex|daniel|fred|tom\b|aaron|mark|andrew|brian|christopher|eric|ryan|rishi|arthur|oliver|gordon|reed|rocko|eddy|evan|nathan|ralph|albert|junior|grandpa|lee\b|thomas|james|william|george|google uk english male/i;
+      MAL_RE = /\bmale\b|guy|david|alex|daniel|tom\b|aaron|mark|andrew|brian|christopher|eric|ryan|rishi|arthur|oliver|gordon|reed|rocko|eddy|evan|nathan|ralph|albert|junior|grandpa|lee\b|thomas|james|william|george|google uk english male/i;
 function voiceList(code){
   const us = voices.filter(v => /en[-_]US/i.test(v.lang));
   const isF = x => FEM_RE.test(x.name) && !/\bmale\b/i.test(x.name.replace(/female/i, "")), isM = x => MAL_RE.test(x.name) && !/female/i.test(x.name);
@@ -53,13 +53,16 @@ function voiceList(code){
   const L = us.filter(want).concat(voices.filter(x => !/en[-_]US/i.test(x.lang)).filter(want));
   return L;
 }
+/* a lower pitch makes many phone engines speak slower too (RYU: the man was much slower), so the pitch only goes down a little
+   and the rate goes up a little to match; some men's voices are slow on their own */
+const SLOW_RE = /google uk english male|\bfred\b|\bdaniel\b|\brishi\b/i;
 function pickVoice(code){
-  if (!voices.length) return {v: null, pitch: code[0] === "m" ? 0.6 : code[1] === "2" ? 1.25 : 1};
+  if (!voices.length) return {v: null, pitch: code[0] === "m" ? 0.85 : code[1] === "2" ? 1.15 : 1, rate: code[0] === "m" ? 1.12 : 1};
   const L = voiceList(code), i = code[1] === "2" ? 1 : 0;
-  if (L.length) return {v: L[i] || L[0], pitch: L[i] ? 1 : code[0] === "m" ? 0.8 : 1.2};
+  if (L.length){ const v = L[i] || L[0]; return {v, pitch: L[i] ? 1 : code[0] === "m" ? 0.88 : 1.12, rate: (L[i] ? 1 : code[0] === "m" ? 1.08 : 1) * (SLOW_RE.test(v.name) ? 1.12 : 1)}; }
   // no voice of that sex on this device: use what there is, with a lower (man) or higher (second woman) pitch
   const any = voiceList(code[0] === "m" ? "f" : "m")[0] || voices.find(v => /en[-_]US/i.test(v.lang)) || voices[0];
-  return {v: any, pitch: code[0] === "m" ? 0.6 : 1.3};
+  return {v: any, pitch: code[0] === "m" ? 0.85 : 1.15, rate: code[0] === "m" ? 1.12 : 1};
 }
 const vOf = (b, who) => (b && b.vo && b.vo[who]) || (MALE.has(who) ? "m" : "f");
 const clipKey = (t, v) => v + "|" + t.trim();
@@ -80,7 +83,7 @@ function speakOne(text, v){
     window.__utt = u;
     const est = 2500 + text.length * 110 / (+S.rate || 1);
     let wd = setTimeout(function tick(){ if (CUR_END !== done) return; if (P.paused || synth.speaking && !synth.paused && Date.now() - t0 < est * 2) { wd = setTimeout(tick, 500); return; } done(); }, est); const t0 = Date.now();
-    const pk = pickVoice(v); if (pk.v) u.voice = pk.v; u.pitch = pk.pitch;
+    const pk = pickVoice(v); if (pk.v) u.voice = pk.v; u.pitch = pk.pitch; u.rate = Math.min(2, (+S.rate || 1) * (pk.rate || 1));
     u.onend = u.onerror = done; synth.speak(u);
   });
 }
