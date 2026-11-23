@@ -547,9 +547,15 @@ function route(){
 }
 addEventListener("hashchange", route);
 $$(".seg button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.mode; stopPlay(); save(); render(); }));
-$("repSel").value = S.rep; $("rateSel").value = S.rate;
+$("repSel").value = S.rep;
+/* speed −/+ : 0.7–1.5 by 0.1 (RYU 2026-11-24) */
+const RMIN = 0.7, RMAX = 1.5;
+function setRate(r){ r = Math.round(Math.min(RMAX, Math.max(RMIN, +r || 1)) * 10) / 10; S.rate = r; $("rateVal").textContent = "×" + r.toFixed(1);
+  $("rateDn").disabled = r <= RMIN; $("rateUp").disabled = r >= RMAX; try { AEL.playbackRate = r; } catch (er) {} }
+setRate(S.rate);
+$("rateDn").onclick = () => { setRate(S.rate - 0.1); save(); };
+$("rateUp").onclick = () => { setRate(S.rate + 0.1); save(); };
 $("repSel").onchange = e => { S.rep = +e.target.value; save(); };
-$("rateSel").onchange = e => { S.rate = +e.target.value; save(); try { AEL.playbackRate = +S.rate || 1; } catch (er) {} };
 /* a second click on the same button stops it (RYU 2026-11-23) */
 const ctlToggle = chain => { const cr = $("ctlrep"); if (P.mode && cr && cr.dataset.on === (chain ? "chain" : "bundle")){ stopPlay(); return; } playBundle(chain); };
 $("playAll").addEventListener("click", () => ctlToggle(false));
@@ -608,7 +614,7 @@ document.addEventListener("keydown", e => {
   if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); ctlToggle(true); return; }
   if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); ctlToggle(false); return; }
   if (/^Digit[1-5]$/.test(c) || /^[1-5]$/.test(e.key)){ e.preventDefault(); setSel("repSel", +(e.key.match(/[1-5]/) || c.slice(-1))[0] - 1); return; }
-  if (is("Minus", "-", "_") || is("Equal", "=", "+")){ e.preventDefault(); const r = $("rateSel"); setSel("rateSel", r.selectedIndex + (is("Equal", "=", "+") ? 1 : -1)); return; }
+  if (is("Minus", "-", "_") || is("Equal", "=", "+")){ e.preventDefault(); setRate(S.rate + (is("Equal", "=", "+") ? 0.1 : -0.1)); save(); return; }
   if (c === "Space" || e.key === " "){
     if (P.mode){ e.preventDefault(); togglePause(); return; }
     if (tn !== "BUTTON" && tn !== "A"){ e.preventDefault(); playBundle(false); } return; }
