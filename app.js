@@ -375,7 +375,9 @@ async function playCardsAll(chain){
     for (let k = 0; P.hold || k < (+S.rep || 1); k++){
       c.classList.remove("back"); showPlayer((P.hold ? "∞ · " : "") + c.dataset.say);
       if (!(await say(tok, c.dataset.say, "f"))) return; if (P.skip) break;
-      await gap(700); c.classList.add("back"); await gap(1100); if (!(await waitPause(tok))) return; if (P.skip) break;
+      await gap(400); c.classList.add("back");   // word, then the example on the back, as one set (RYU 2026-11-23)
+      if (c.dataset.ex){ if (!(await say(tok, c.dataset.ex, c.dataset.exv))) return; } else await gap(1100);
+      await gap(600); if (!(await waitPause(tok))) return; if (P.skip) break;
     }
     c.classList.remove("back");
     if (P.skip){ i = Math.max(0, Math.min(cs.length - 1, i + P.skip)); P.skip = 0; continue; }
@@ -478,8 +480,10 @@ $$(".seg button").forEach(b => b.addEventListener("click", () => { S.mode = b.da
 $("repSel").value = S.rep; $("rateSel").value = S.rate;
 $("repSel").onchange = e => { S.rep = +e.target.value; save(); };
 $("rateSel").onchange = e => { S.rate = +e.target.value; save(); try { AEL.playbackRate = +S.rate || 1; } catch (er) {} };
-$("playAll").addEventListener("click", () => playBundle(false));
-$("playCont").addEventListener("click", () => playBundle(true));
+/* a second click on the same button stops it (RYU 2026-11-23) */
+const ctlToggle = chain => { const cr = $("ctlrep"); if (P.mode && cr && cr.dataset.on === (chain ? "chain" : "bundle")){ stopPlay(); return; } playBundle(chain); };
+$("playAll").addEventListener("click", () => ctlToggle(false));
+$("playCont").addEventListener("click", () => ctlToggle(true));
 for (const [id, c] of [["tKo", "hide-ko"], ["tEn", "hide-en"], ["tSt", "hide-st"]])
   $(id).onchange = e => { document.body.classList.toggle(c, e.target.checked); $$("#view .show").forEach(x => x.classList.remove("show")); };
 /* tapping a hidden (blurred) text shows it; tapping a line plays it */
@@ -528,8 +532,8 @@ document.addEventListener("keydown", e => {
     go(ORDER[(i + d + ORDER.length) % ORDER.length]); return; }
   if (is("KeyQ", "q", "ㅂ") || is("KeyW", "w", "ㅈ") || is("KeyE", "e", "ㄷ")){
     e.preventDefault(); $(is("KeyQ", "q", "ㅂ") ? "m-learn" : is("KeyW", "w", "ㅈ") ? "m-cards" : "m-quiz").click(); return; }
-  if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); playBundle(true); return; }
-  if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); if (P.mode === "seq") stopPlay(); else playBundle(false); return; }
+  if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); ctlToggle(true); return; }
+  if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); ctlToggle(false); return; }
   if (/^Digit[1-5]$/.test(c) || /^[1-5]$/.test(e.key)){ e.preventDefault(); setSel("repSel", +(e.key.match(/[1-5]/) || c.slice(-1))[0] - 1); return; }
   if (is("Minus", "-", "_") || is("Equal", "=", "+")){ e.preventDefault(); const r = $("rateSel"); setSel("rateSel", r.selectedIndex + (is("Equal", "=", "+") ? 1 : -1)); return; }
   if (c === "Space" || e.key === " "){
