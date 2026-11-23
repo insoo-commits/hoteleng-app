@@ -1270,19 +1270,18 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 .gl .en{font-weight:600;color:var(--ink)}
 .drill .line .gl{margin-right:-50px}
 .wrep.on{background:var(--rev);border-color:var(--accent);color:var(--ink)}
-/* every repeat button and every speaker end on one right edge (RYU 2026-11-23) */
+/* speakers share one right edge; repeat buttons sit at the box's right edge (RYU 2026-11-23) */
+.wrep.hrep,.word .wrep,.wrep.drep{margin-right:0!important}
 .drill .dpat{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px}
 .drill .dpat .drep{margin-left:auto}
 .wrep.drep{position:static;flex:none;display:inline-flex;align-items:center;gap:6px}
 .sec .dlg .line,.sec .drill .rows .line{padding-right:14px!important}
 .sec .exs .line{padding-right:15px!important}
-.wrep.hrep,.word .wrep,.wrep.drep{margin-right:15px!important}
 .drill .dpat{padding-right:0}
 .drill .line>.spk{justify-self:end}
 @media (max-width:640px){
   .sec .dlg .line,.sec .drill .rows .line{padding-right:12px!important}
   .sec .exs .line{padding-right:13px!important}
-  .wrep.hrep,.word .wrep,.wrep.drep{margin-right:13px!important}
 }
 .controls .ctl>span.repw{display:inline-flex}
 /* 연속 재생 · 묶음 재생 like lao-app: one pair, outer ends round, inner ends nearly square; key badge filled (RYU 2026-11-23) */
@@ -1359,6 +1358,6 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="bt">정지</span></button></div>
   <p class="foot">🔊 손님은 남성, 직원은 여성 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스 영어 v1.5 · 182묶음 · 호텔 부서별 예문: Practical Hotel English</p>
+  <p class="ver">호텔서비스 영어 v1.6 · 182묶음 · 호텔 부서별 예문: Practical Hotel English</p>
 </div>
-<script src="data.js?v=1.5"></script><script src="app.js?v=1.5"></script></body></html>
+<script src="data.js?v=1.6"></script><script src="app.js?v=1.6"></script></body></html>
