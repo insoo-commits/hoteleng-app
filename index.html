@@ -426,15 +426,23 @@ th{border-top:0;background:var(--accent-soft);font-size:16px;color:var(--ink);fo
   .sec .word .exs{margin-top:6px}
 }
 /* dialogue lines carry the same round number badge as the example cards (RYU 2026-11-14) */
-.dlg .line{grid-template-columns:24px minmax(0,1fr) 38px;column-gap:12px}
-.dlg .line>.exn{display:grid;grid-column:1;grid-row:1;place-items:center;width:22px;height:22px;margin-top:3px;padding:0;
+.dlg .line,
+/* dialogue lines carry the same round number badge as the example cards (RYU 2026-11-14) */
+.nrows .line{grid-template-columns:24px minmax(0,1fr) 38px;column-gap:12px}
+.dlg .line>.exn,
+.nrows .line>.exn{display:grid;grid-column:1;grid-row:1;place-items:center;width:22px;height:22px;margin-top:3px;padding:0;
   border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700;line-height:1}
-.dlg .line>div:not(.exn){grid-column:2}
-.dlg .line>.spk{grid-column:3}
-.dlg .line.now>.exn{background:var(--now-bar);color:var(--sheet)}
+.dlg .line>div:not(.exn),
+.nrows .line>div:not(.exn){grid-column:2}
+.dlg .line>.spk,
+.nrows .line>.spk{grid-column:3}
+.dlg .line.now>.exn,
+.nrows .line.now>.exn{background:var(--now-bar);color:var(--sheet)}
 @media (max-width:759px){
-  .dlg .line{grid-template-columns:22px minmax(0,1fr) 34px;column-gap:10px}
-  .dlg .line>.exn{width:20px;height:20px;font-size:11px;margin-top:2px}
+  .dlg .line,
+  .nrows .line{grid-template-columns:22px minmax(0,1fr) 34px;column-gap:10px}
+  .dlg .line>.exn,
+  .nrows .line>.exn{width:20px;height:20px;font-size:11px;margin-top:2px}
 }
 /* review-quiz questions carry the same round number badge as examples and dialogue lines (RYU 2026-11-14) */
 .qa .qq{display:flex;align-items:flex-start;gap:12px;min-width:0}
@@ -556,7 +564,7 @@ th{border-top:0;background:var(--accent-soft);font-size:16px;color:var(--ink);fo
 .ddck{flex:none;align-self:center;color:var(--accent);font-weight:700;margin-right:2px}
 /* PC/tablet sizes matched to lao-app proportions: example meaning and notes a step smaller (RYU 2026-11-15, v1.43) */
 @media (min-width:760px){
-  .sec .word .exs .line.ex .m,.dlg .line .m,.line .m{font-size:15px}
+  .sec .word .exs .line.ex .m,.dlg .line .m,.line .m,.nrows .line .m{font-size:15px}
   .sec .word>.line.head .m{font-size:16px}
   .gl{font-size:13.5px}
 }
@@ -1068,8 +1076,9 @@ html.tab .sec .word>.line.head .k{font-size:28.8px}
 @media (max-width:759px){html.tab .sec .word>.line.head .k{font-size:24px}}
 html.tab .sec .word .exs .line.ex>.exn{font-size:14.4px}
 @media (max-width:759px){html.tab .sec .word .exs .line.ex>.exn{font-size:13.2px}}
-html.tab .dlg .line>.exn{font-size:14.4px}
-@media (max-width:759px){html.tab .dlg .line>.exn{font-size:13.2px}}
+html.tab .dlg .line>.exn,
+html.tab .nrows .line>.exn{font-size:14.4px}
+@media (max-width:759px){html.tab .dlg .line>.exn,html.tab .nrows .line>.exn{font-size:13.2px}}
 html.tab .qa .qq>.exn{font-size:14.4px}
 @media (max-width:759px){html.tab .qa .qq>.exn{font-size:13.2px}}
 html.tab .band p.intro .sub-ko{font-size:18px}
@@ -1080,7 +1089,7 @@ html.tab .band #bsel .bsel{font-size:24px}
 @media (max-width:759px){html.tab .band #bsel .bsel{font-size:21.6px}}
 html.tab .sub .name{font-size:17.4px}
 html.tab .sub .kn,html.tab .sub .prog{font-size:14.4px}
-@media (min-width:760px){html.tab .sec .word .exs .line.ex .m,html.tab .dlg .line .m,html.tab .line .m{font-size:18px}html.tab .sec .word>.line.head .m{font-size:19.2px}html.tab .gl{font-size:16.2px}}
+@media (min-width:760px){html.tab .sec .word .exs .line.ex .m,html.tab .dlg .line .m,html.tab .line .m,html.tab .nrows .line .m{font-size:18px}html.tab .sec .word>.line.head .m{font-size:19.2px}html.tab .gl{font-size:16.2px}}
 html.tab .wrep,html.tab .wrep:hover{font-size:15px}
 @media (min-width:561px){html.tab .controls .seg button{font-size:16.8px}html.tab .ctl{font-size:15px}html.tab .controls .ctl .bsel{font-size:16.8px}}
 html.tab .player{font-size:14.4px}
@@ -1288,6 +1297,8 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 .drill .dpat .drep{margin-left:auto}
 .wrep.drep{position:static;flex:none;display:inline-flex;align-items:center;gap:6px}
 .sec .dlg .line,.sec .drill .rows .line{padding-right:14px!important}
+.drill .nrows .line{grid-template-columns:24px minmax(0,1fr) 38px;column-gap:12px}.drill .nrows .line>.exn{grid-column:1;grid-row:1}.drill .nrows .line>div:not(.exn){grid-column:2;grid-row:1}.drill .nrows .line>.spk{grid-column:3;grid-row:1}
+@media (max-width:600px){.drill .nrows .line{grid-template-columns:22px minmax(0,1fr) 34px;column-gap:10px}}
 .sec .exs .line{padding-right:15px!important}
 .drill .dpat{padding-right:0}
 .drill .line>.spk{justify-self:end}
@@ -1370,6 +1381,6 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></span><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></span><span class="bt">정지</span></button></div>
   <p class="foot" id="voiceNote">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스영어(v1.25) 2026.11.24.</p>
+  <p class="ver">호텔서비스영어(v1.26) 2026.11.24.</p>
 </div>
-<script src="data.js?v=1.25"></script><script src="app.js?v=1.25"></script></body></html>
+<script src="data.js?v=1.26"></script><script src="app.js?v=1.26"></script></body></html>

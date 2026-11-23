@@ -302,7 +302,7 @@ function dlgBox(b){
 function drillBox(d){
   return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1]),
       h("button", {class: "wrep drep", type: "button", onclick: ev => groupRep(ev, [...ev.currentTarget.closest(".drill").querySelectorAll("[data-say]")])}, ico("rep"), "문장 반복")),
-    h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]), gloss(s[2]))))));
+    h("div", {class: "rows nrows"}, d[2].map((s, n) => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, h("div", {class: "exn"}, String(n + 1)), spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]), gloss(s[2]))))));
 }
 function qaBox(q, n){
   const a = h("div", {class: "a", hidden: true}, q[1]);
