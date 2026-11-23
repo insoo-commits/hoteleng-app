@@ -117,6 +117,12 @@ function segs(el){
 const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) ? c : undefined; };
 function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
+/* keep the sentence being read in view: when it reaches the bottom 25% of the screen (or is above it),
+   scroll so it sits about 25% from the top (RYU 2026-11-23) */
+function follow(el){
+  const r = el.getBoundingClientRect(), vh = innerHeight;
+  if (r.bottom > vh * 0.75 || r.top < 0) window.scrollTo({top: Math.max(0, scrollY + r.top - vh * 0.25), behavior: "smooth"});
+}
 async function playEls(els, chain, loop){
   const was = !!P.mode; stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain || loop ? "seq" : "single";
   if (was){ await gap(150); if (tok !== P.tok) return; }   // speak() right after cancel() is sometimes dropped (Chrome, Safari)
@@ -125,7 +131,7 @@ async function playEls(els, chain, loop){
     if (tok !== P.tok) return;
     const el = els[i]; P.i = i;
     $$(".now").forEach(x => x.classList.remove("now")); el.classList.add("now");
-    el.scrollIntoView({block: "nearest", behavior: "smooth"});
+    follow(el);
     const sg = segs(el);
     for (let k = 0; P.hold || k < (+S.rep || 1); k++){
       for (let j = 0; j < sg.length; j++){
@@ -371,7 +377,7 @@ async function playCardsAll(chain){
   stopPlay(); const tok = ++P.tok; P.mode = "seq"; const cs = $$("#view .wcard"); let i = 0;
   while (i < cs.length){
     if (tok !== P.tok) return; const c = cs[i];
-    $$(".now").forEach(x => x.classList.remove("now")); c.classList.add("now"); c.scrollIntoView({block: "nearest", behavior: "smooth"});
+    $$(".now").forEach(x => x.classList.remove("now")); c.classList.add("now"); follow(c);
     for (let k = 0; P.hold || k < (+S.rep || 1); k++){
       c.classList.remove("back"); showPlayer((P.hold ? "∞ · " : "") + c.dataset.say);
       if (!(await say(tok, c.dataset.say, "f"))) return; if (P.skip) break;
