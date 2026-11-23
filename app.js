@@ -42,13 +42,24 @@ const synth = window.speechSynthesis;
 let voices = [];
 const loadVoices = () => { if (synth) voices = synth.getVoices().filter(v => /^en[-_](US|GB|AU|CA)/i.test(v.lang)); };
 if (synth){ loadVoices(); synth.onvoiceschanged = loadVoices; }
+/* device voices: a man's voice for m, a woman's for f (US first, then any English); a second voice for m2 / f2.
+   When the device has no man's voice (e.g. only "Google US English"), the pitch is lowered so A and B still sound different. */
+const FEM_RE = /female|samantha|jenny|aria|zira|ava|allison|susan|karen|emma|michelle|victoria|moira|tessa|fiona|serena|nicky|joelle|kathy|shelley|sandy|flo|google us english|libby|sonia|natasha|hazel|catherine/i,
+      MAL_RE = /\bmale\b|guy|david|alex|daniel|fred|tom\b|aaron|mark|andrew|brian|christopher|eric|ryan|rishi|arthur|oliver|gordon|reed|rocko|eddy|evan|nathan|ralph|albert|junior|grandpa|lee\b|thomas|james|william|george|google uk english male/i;
+function voiceList(code){
+  const us = voices.filter(v => /en[-_]US/i.test(v.lang));
+  const isF = x => FEM_RE.test(x.name) && !/\bmale\b/i.test(x.name.replace(/female/i, "")), isM = x => MAL_RE.test(x.name) && !/female/i.test(x.name);
+  const want = code[0] === "m" ? isM : isF;
+  const L = us.filter(want).concat(voices.filter(x => !/en[-_]US/i.test(x.lang)).filter(want));
+  return L;
+}
 function pickVoice(code){
-  const us = voices.filter(v => /en[-_]US/i.test(v.lang)), v = us.length ? us : voices;
-  if (!v.length) return null;
-  const fem = v.filter(x => /female|samantha|jenny|aria|zira|ava|allison|susan|karen|emma|michelle/i.test(x.name)),
-        mal = v.filter(x => /\bmale|guy|david|alex|daniel|fred|tom|aaron|mark|andrew|brian|christopher|eric/i.test(x.name) && !/female/i.test(x.name));
-  const L = code[0] === "m" ? mal : fem;
-  return L[code[1] === "2" ? 1 : 0] || L[0] || v[0];
+  if (!voices.length) return {v: null, pitch: code[0] === "m" ? 0.6 : code[1] === "2" ? 1.25 : 1};
+  const L = voiceList(code), i = code[1] === "2" ? 1 : 0;
+  if (L.length) return {v: L[i] || L[0], pitch: L[i] ? 1 : code[0] === "m" ? 0.8 : 1.2};
+  // no voice of that sex on this device: use what there is, with a lower (man) or higher (second woman) pitch
+  const any = voiceList(code[0] === "m" ? "f" : "m")[0] || voices.find(v => /en[-_]US/i.test(v.lang)) || voices[0];
+  return {v: any, pitch: code[0] === "m" ? 0.6 : 1.3};
 }
 const vOf = (b, who) => (b && b.vo && b.vo[who]) || (MALE.has(who) ? "m" : "f");
 const clipKey = (t, v) => v + "|" + t.trim();
@@ -64,7 +75,7 @@ function speakOne(text, v){
     if (src){ AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
     if (!synth){ setTimeout(done, 400); return; }
     const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = +S.rate || 1;
-    const vc = pickVoice(v); if (vc) u.voice = vc;
+    const pk = pickVoice(v); if (pk.v) u.voice = pk.v; u.pitch = pk.pitch;
     u.onend = u.onerror = done; synth.speak(u);
   });
 }
