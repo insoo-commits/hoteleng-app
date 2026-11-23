@@ -1266,6 +1266,20 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
   html:not(.tab) .controls .ctl .bsel{font-size:14px}
 }
 #sheet{will-change:auto}
+/* every repeat button and every speaker end on one right edge (RYU 2026-11-23) */
+.drill .dpat{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px}
+.drill .dpat .drep{margin-left:auto}
+.wrep.drep{position:static;flex:none;display:inline-flex;align-items:center;gap:6px}
+.sec .dlg .line,.sec .drill .rows .line{padding-right:14px!important}
+.sec .exs .line{padding-right:15px!important}
+.wrep.hrep,.word .wrep,.wrep.drep{margin-right:15px!important}
+.drill .dpat{padding-right:0}
+.drill .line>.spk{justify-self:end}
+@media (max-width:640px){
+  .sec .dlg .line,.sec .drill .rows .line{padding-right:12px!important}
+  .sec .exs .line{padding-right:13px!important}
+  .wrep.hrep,.word .wrep,.wrep.drep{margin-right:13px!important}
+}
 .controls .ctl>span.repw{display:inline-flex}
 /* 연속 재생 · 묶음 재생 like lao-app: one pair, outer ends round, inner ends nearly square; key badge filled (RYU 2026-11-23) */
 .controls #ctlrep{gap:6px}

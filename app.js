@@ -226,7 +226,8 @@ function dlgBox(b){
     h("div", null, h("div", {class: "k"}, h("span", {class: "who"}, (b.dn && b.dn[d[0]]) || WHO[d[0]] || d[0]), d[1]), h("div", {class: "m"}, d[2]), gloss(d[3])))));
 }
 function drillBox(d){
-  return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1])),
+  return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1]),
+      h("button", {class: "wrep drep", type: "button", onclick: ev => playEls([...ev.currentTarget.closest(".drill").querySelectorAll("[data-say]")])}, ico("rep"), "문장 반복")),
     h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]))))));
 }
 function qaBox(q, n){
