@@ -78,19 +78,31 @@ const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2L
 let unlocked = false;
 function unlockAudio(){
   if (unlocked) return; unlocked = true;
-  try { if (!AEL.src || AEL.paused){ AEL.src = SILENT; const pr = AEL.play(); if (pr && pr.catch) pr.catch(() => { unlocked = false; }); } } catch (e) { unlocked = false; }
+  try { if (!AEL.src || AEL.paused){ AEL.src = SILENT; const pr = AEL.play(); if (pr && pr.catch) pr.catch(e => { if (e && e.name === "NotAllowedError") unlocked = false; }); } } catch (e) { unlocked = false; }
   try { if (synth){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } } catch (e) {}
 }
 ["touchend", "click", "keydown"].forEach(t => document.addEventListener(t, unlockAudio, {capture: true, passive: true}));
 let P = {tok: 0, mode: null, paused: false, hold: false, skip: 0}, CUR_END = null;
-const gap = ms => new Promise(r => setTimeout(r, ms));
-function quiet(){ if (synth) try { synth.cancel(); if (synth.paused) synth.resume(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+/* background play (RYU 2026-11-24: keep playing with the app in the background or the screen off): phones stop a page's
+   timers once its sound stops, so the pauses between sentences play the silent mp3 in a loop on the same audio element
+   and end on its timeupdate as well as on a timer; the sound never stops while a bundle plays */
+function gap(ms){
+  if (!P.mode) return sleep(ms);
+  return new Promise(r => {
+    const t0 = Date.now(); let fin = false, to = 0;
+    const end = () => { if (fin) return; fin = true; clearTimeout(to); AEL.ontimeupdate = null; if (AEL.src === SILENT){ AEL.loop = false; if (!P.mode) AEL.pause(); } r(); };
+    to = setTimeout(end, ms);
+    try { AEL.onended = AEL.onerror = null; AEL.ontimeupdate = () => { if (Date.now() - t0 >= ms) end(); }; if (AEL.src !== SILENT) AEL.src = SILENT; AEL.loop = true; AEL.playbackRate = 1; const pr = AEL.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+  });
+}
+function quiet(){ if (synth) try { synth.cancel(); if (synth.paused) synth.resume(); } catch (e) {} try { AEL.onended = AEL.onerror = null; AEL.loop = false; AEL.pause(); } catch (e) {} const f = CUR_END; CUR_END = null; if (f) f(); }
 function speakOne(text, v){
   return new Promise(res => {
     const done = () => { if (CUR_END === done) CUR_END = null; res(); };
     CUR_END = done;
     const src = AUD[clipKey(text, v)];
-    if (src){ AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
+    if (src){ AEL.ontimeupdate = null; AEL.loop = false; AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
     if (!synth){ setTimeout(done, 400); return; }
     const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = +S.rate || 1;
     /* Chrome can drop an utterance it has garbage-collected and never send onend, which stopped repeats:
@@ -102,7 +114,7 @@ function speakOne(text, v){
     u.onend = u.onerror = done; synth.speak(u);
   });
 }
-async function waitPause(tok){ while (P.paused && tok === P.tok) await gap(150); return tok === P.tok; }
+async function waitPause(tok){ while (P.paused && tok === P.tok) await sleep(150); return tok === P.tok; }
 async function say(tok, text, v){ if (tok !== P.tok) return false; await speakOne(text, v || "f"); return waitPause(tok); }
 /* bottom bar: [menu-sub-bundle/bundles in the sub] sentence/sentences · text, like lao-app (RYU 2026-11-23) */
 function showPlayer(t, i, n){
@@ -110,10 +122,25 @@ function showPlayer(t, i, n){
   const c = S.code, nb = (G[gOf(c) - 1][1].find((x, j) => gOf(c) + "-" + String(j + 1).padStart(2, "0") === sOf(c)) || [0, []])[1].length;
   const sp = h("span", {class: "pspk", "aria-hidden": "true"}); sp.innerHTML = PSPK;
   $("pt").replaceChildren(sp, h("span", {class: "pw"}, "[" + c + "/" + String(nb).padStart(2, "0") + "]" + (n ? " " + i + "/" + n : "")), " · " + t);
+  mediaInfo(t, c);
+}
+/* lock screen / notification: what is playing, with play·pause, previous·next sentence (RYU 2026-11-24) */
+let MS_ON = false;
+function mediaInfo(t, c){
+  const ms = navigator.mediaSession; if (!ms) return;
+  try {
+    const b = B[c] || {};
+    ms.metadata = new MediaMetadata({title: t, artist: (b.t || "") + " · " + c, album: "호텔서비스 영어", artwork: [{src: "icon-192.png", sizes: "192x192", type: "image/png"}, {src: "icon-512.png", sizes: "512x512", type: "image/png"}]});
+    ms.playbackState = P.paused ? "paused" : "playing";
+    if (MS_ON) return; MS_ON = true;
+    const H = [["play", () => { if (P.paused || P.hold) togglePause(); }], ["pause", () => { if (!P.paused) togglePause(); }],
+      ["previoustrack", () => skipBy(-1)], ["nexttrack", () => skipBy(1)], ["stop", () => stopPlay()]];
+    for (const [a, f] of H) try { ms.setActionHandler(a, f); } catch (e) {}
+  } catch (e) {}
 }
 function pauseLabel(){ const b = $("ppause"); if (!b) return; const go = P.paused || (P.hold && P.els && P.els.length > 1 && !LINE);
   b.querySelector(".bt").textContent = P.paused ? "재개" : go ? "계속" : "일시정지"; b.querySelector(".pico").innerHTML = go ? PICO.play : PICO.pause; }
-function stopPlay(){ LINE = null; if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); }
+function stopPlay(){ LINE = null; if (GRP){ GRP.classList.toggle("on", false); GRP = null; } const cr = document.getElementById("ctlrep"); if (cr) delete cr.dataset.on; P.tok++; P.mode = null; P.paused = false; P.hold = false; P.skip = 0; quiet(); $$(".now").forEach(x => x.classList.remove("now")); $("player").hidden = true; document.body.classList.remove("has-player"); pauseLabel(); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = "none"; } catch (e) {} }
 function togglePause(){
   if (!P.mode) return;
   if (P.hold && P.els && P.els.length > 1 && !LINE){ P.hold = false; P.skip = 1; if (P.paused){ P.paused = false; } quiet(); pauseLabel(); return; }   // release the held sentence, go on
@@ -122,7 +149,7 @@ function togglePause(){
     if (P.paused){ if (AEL.src && !AEL.paused) AEL.pause(); else if (synth) synth.pause(); }
     else { if (AEL.src && AEL.paused && CUR_END && !AEL.ended) AEL.play().catch(() => {}); if (synth) synth.resume(); }
   } catch (e) {}
-  pauseLabel();
+  pauseLabel(); try { if (navigator.mediaSession) navigator.mediaSession.playbackState = P.paused ? "paused" : "playing"; } catch (e) {}
 }
 /* ← →: previous / next line while a bundle plays */
 function skipBy(d){ if (P.mode !== "seq") return; P.hold = false; P.skip = d; if (P.paused){ P.paused = false; pauseLabel(); } quiet(); }
@@ -134,7 +161,7 @@ function segs(el){
   return out;
 }
 const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) ? c : undefined; };
-function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); setTimeout(() => playBundle(true), 500); }
+function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); gap(500).then(() => playBundle(true)); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
 /* keep the sentence being read in view: when it reaches the bottom 10% of the screen (or is above it),
    scroll so it sits about 10% from the top (RYU 2026-11-23) */
@@ -144,7 +171,7 @@ function follow(el){
 }
 async function playEls(els, chain, loop){
   const was = !!P.mode; stopPlay(); const tok = ++P.tok; P.mode = els.length > 1 || chain || loop ? "seq" : "single";
-  if (was){ await gap(150); if (tok !== P.tok) return; }   // speak() right after cancel() is sometimes dropped (Chrome, Safari)
+  if (was){ await sleep(150); if (tok !== P.tok) return; }   // speak() right after cancel() is sometimes dropped (Chrome, Safari)
   let i = 0; P.els = els;
   while (i < els.length){
     if (tok !== P.tok) return;
