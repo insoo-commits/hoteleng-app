@@ -75,6 +75,11 @@ function speakOne(text, v){
     if (src){ AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
     if (!synth){ setTimeout(done, 400); return; }
     const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = +S.rate || 1;
+    /* Chrome can drop an utterance it has garbage-collected and never send onend, which stopped repeats:
+       keep a reference, and go on anyway once the line must have finished */
+    window.__utt = u;
+    const est = 2500 + text.length * 110 / (+S.rate || 1);
+    let wd = setTimeout(function tick(){ if (CUR_END !== done) return; if (P.paused || synth.speaking && !synth.paused && Date.now() - t0 < est * 2) { wd = setTimeout(tick, 500); return; } done(); }, est); const t0 = Date.now();
     const pk = pickVoice(v); if (pk.v) u.voice = pk.v; u.pitch = pk.pitch;
     u.onend = u.onerror = done; synth.speak(u);
   });
@@ -222,7 +227,8 @@ function hw(sent, word){   // headword inside an example, underlined
       return [sent.slice(0, i), h("span", {class: "hw"}, sent.slice(i, e)), sent.slice(e)]; } }
   return [sent];
 }
-const gloss = g => g && g.length ? h("div", {class: "gl"}, "※ ", g.flatMap((x, j) => [j ? " · " : null, h("span", {class: "en"}, x[0]), " (", h("span", {class: "gm"}, x[1]), ")"])) : null;
+/* key words under a sentence, right-aligned under a dotted line: ※ word(뜻), word(뜻) (RYU 2026-11-23, like lao-app) */
+const gloss = g => g && g.length ? h("div", {class: "gl"}, "※ ", g.flatMap((x, j) => [j ? ", " : null, h("span", {class: "en"}, x[0]), "(", h("span", {class: "gm"}, x[1]), ")"])) : null;
 const sec = (title, extra, ...kids) => kids.flat(9).filter(Boolean).length ? h("section", {class: "sec"}, h("h3", null, title, extra), kids) : null;
 const lbl = (b, k) => (b.wl || ["손님", "직원"])[k];
 function wordBox(b, w){
@@ -247,7 +253,7 @@ function dlgBox(b){
 function drillBox(d){
   return h("div", {class: "drill"}, h("div", {class: "dpat"}, h("b", null, d[0]), h("span", null, d[1]),
       h("button", {class: "wrep drep", type: "button", onclick: ev => groupRep(ev, [...ev.currentTarget.closest(".drill").querySelectorAll("[data-say]")])}, ico("rep"), "문장 반복")),
-    h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]))))));
+    h("div", {class: "rows"}, d[2].map(s => h("div", {class: "line", "data-say": s[0], "data-v": "f"}, spk(), h("div", null, h("div", {class: "k"}, s[0]), h("div", {class: "m"}, s[1]), gloss(s[2]))))));
 }
 function qaBox(q, n){
   const a = h("div", {class: "a", hidden: true}, q[1]);
