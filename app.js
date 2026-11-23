@@ -373,10 +373,10 @@ function renderLearn(b){
       const shuf = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
       const partOf = q => q[0].split(" ·")[0];
       /* 미니 모의고사 (b.tqk): the same number per Part as a real mini test, each drawn from that Part's bank, in Part order */
-      const show = b.tqk ? Object.values(b.tqk).reduce((x, y) => x + y, 0) : TQN;
+      const n = b.tqn || TQN, show = b.tqk ? Object.values(b.tqk).reduce((x, y) => x + y, 0) : Math.min(n, all.length);
       const draw = () => { let pick = all.map((q, i) => i);
         if (b.tqk) pick = Object.keys(b.tqk).sort().flatMap(p => shuf(pick.filter(i => partOf(all[i]) === p)).slice(0, b.tqk[p]).sort((x, y) => x - y));
-        else if (all.length > TQN) pick = shuf(pick).slice(0, TQN).sort((x, y) => x - y);
+        else if (all.length > n) pick = shuf(pick).slice(0, n).sort((x, y) => x - y);
         wrap.replaceChildren(...pick.map((i, n) => tqBox(all[i], n))); };
       draw();
       const more = all.length > show ? h("button", {class: "wrep hrep", type: "button", onclick: () => { stopPlay(); draw(); }}, "🔀 다른 문제 (" + all.length + "문제 중 " + show + ")") : null;
