@@ -548,13 +548,10 @@ function route(){
 addEventListener("hashchange", route);
 $$(".seg button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.mode; stopPlay(); save(); render(); }));
 $("repSel").value = S.rep;
-/* speed −/+ : 0.7–1.5 by 0.1 (RYU 2026-11-24) */
-const RMIN = 0.7, RMAX = 1.5;
-function setRate(r){ r = Math.round(Math.min(RMAX, Math.max(RMIN, +r || 1)) * 10) / 10; S.rate = r; $("rateVal").textContent = "×" + r.toFixed(1);
-  $("rateDn").disabled = r <= RMIN; $("rateUp").disabled = r >= RMAX; try { AEL.playbackRate = r; } catch (er) {} }
+/* speed: 0.7–1.5 by 0.1, select box + keys - = (or - +, numpad − +) (RYU 2026-11-24) */
+function setRate(r){ r = Math.round(Math.min(1.5, Math.max(0.7, +r || 1)) * 10) / 10; S.rate = r; $("rateSel").value = String(r); try { AEL.playbackRate = r; } catch (er) {} }
 setRate(S.rate);
-$("rateDn").onclick = () => { setRate(S.rate - 0.1); save(); };
-$("rateUp").onclick = () => { setRate(S.rate + 0.1); save(); };
+$("rateSel").onchange = e => { setRate(e.target.value); save(); };
 $("repSel").onchange = e => { S.rep = +e.target.value; save(); };
 /* a second click on the same button stops it (RYU 2026-11-23) */
 const ctlToggle = chain => { const cr = $("ctlrep"); if (P.mode && cr && cr.dataset.on === (chain ? "chain" : "bundle")){ stopPlay(); return; } playBundle(chain); };
@@ -585,7 +582,7 @@ for (const ev of ["input", "search", "change", "compositionend", "keyup"]) $("q"
    , . previous / next bundle · Enter this line without end (∞) · 1-5 횟수 · - = 속도 · Q W E views · ? list of keys.
    Keys go by e.code too, so they work with the Korean keyboard on. */
 const KEYS = [["Space", "일시정지 · 재개 (멈춰 있으면 묶음 듣기)"], ["C", "연속 듣기 (이 묶음부터 다음 묶음으로)"], ["G", "묶음 전체 듣기"], ["Esc", "정지"],
-  ["← →", "이전 · 다음 문장"], ["< >  (, .)", "이전 · 다음 묶음"], ["Enter", "지금 문장 무한 반복 · 끄기"], ["1 ~ 5", "반복 횟수"], ["-  =", "느리게 · 빠르게"],
+  ["← →", "이전 · 다음 문장"], ["< >  (, .)", "이전 · 다음 묶음"], ["Enter", "지금 문장 무한 반복 · 끄기"], ["1 ~ 5", "반복 횟수"], ["-  =  (또는 - +)", "느리게 · 빠르게 (×0.7 ~ ×1.5)"],
   ["Q W E", "문장보기 · 주요단어 · 복습퀴즈"], ["?", "단축키 목록 열기 · 닫기"]];
 function keyHelp(){
   const box = h("div", {id: "kbhelp", onclick: () => box.remove()},
@@ -614,7 +611,8 @@ document.addEventListener("keydown", e => {
   if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); ctlToggle(true); return; }
   if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); ctlToggle(false); return; }
   if (/^Digit[1-5]$/.test(c) || /^[1-5]$/.test(e.key)){ e.preventDefault(); setSel("repSel", +(e.key.match(/[1-5]/) || c.slice(-1))[0] - 1); return; }
-  if (is("Minus", "-", "_") || is("Equal", "=", "+")){ e.preventDefault(); setRate(S.rate + (is("Equal", "=", "+") ? 0.1 : -0.1)); save(); return; }
+  const up = is("Equal", "=", "+") || c === "NumpadAdd", dn = is("Minus", "-", "_") || c === "NumpadSubtract";
+  if (up || dn){ e.preventDefault(); setRate(S.rate + (up ? 0.1 : -0.1)); save(); return; }
   if (c === "Space" || e.key === " "){
     if (P.mode){ e.preventDefault(); togglePause(); return; }
     if (tn !== "BUTTON" && tn !== "A"){ e.preventDefault(); playBundle(false); } return; }

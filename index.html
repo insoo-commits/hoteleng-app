@@ -1307,13 +1307,6 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
   .sec .exs .line{padding-right:13px!important}
 }
 .controls .ctl>span.repw{display:inline-flex}
-/* speed −/+ stepper, 0.7–1.5 by 0.1 (RYU 2026-11-24) */
-.controls .ctl>span.rstep,.rstep{display:inline-flex;align-items:center;height:34px;border:1px solid var(--accent);border-radius:999px;background:var(--rev);color:var(--ink);overflow:hidden}
-.rstep button{width:32px;height:100%;border:0;background:transparent;color:var(--accent);font-size:19px;font-weight:700;line-height:1;cursor:pointer;padding:0}
-.rstep button:disabled{opacity:.35;cursor:default}
-.rstep button:active{background:var(--line)}
-.rstep output{min-width:42px;text-align:center;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
-@media (max-width:600px){html:not(.tab) .controls .ctl>span.rstep{height:38px}}
 /* 연속 재생 · 묶음 재생 like lao-app: one pair, outer ends round, inner ends nearly square; key badge filled (RYU 2026-11-23) */
 .controls #ctlrep{gap:6px}
 .controls #ctlrep .wrep.tbtn{border:1.5px solid var(--accent);color:var(--accent);background:var(--sheet);font-weight:600;display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px}
@@ -1376,7 +1369,7 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
         <button data-mode="quiz" id="m-quiz" type="button" aria-pressed="false"><span class="lg">복습퀴즈</span><span class="sh">퀴즈</span><kbd class="kc">E</kbd></button>
       </div>
       <div class="opts"><label class="ctl"><span class="replab">문장 재생 횟수<kbd class="kc">1~5</kbd></span><span class="repw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><select id="repSel" class="bsel" aria-label="문장 재생 횟수"><option value="1">1회</option><option value="2">2회</option><option value="3">3회</option><option value="4">4회</option><option value="5">5회</option></select></span></label>
-      <div class="ctl"><span>속도<kbd class="kc">- =</kbd></span><span class="rstep" role="group" aria-label="속도"><button type="button" id="rateDn" aria-label="느리게">−</button><output id="rateVal">×1.0</output><button type="button" id="rateUp" aria-label="빠르게">+</button></span></div></div>
+      <label class="ctl"><span>속도<kbd class="kc">±</kbd></span><select id="rateSel" class="bsel" aria-label="속도"><option value="0.7">×0.7</option><option value="0.8">×0.8</option><option value="0.9">×0.9</option><option value="1">×1.0</option><option value="1.1">×1.1</option><option value="1.2">×1.2</option><option value="1.3">×1.3</option><option value="1.4">×1.4</option><option value="1.5">×1.5</option></select></label></div>
       <div class="rowbtns ctlrep" id="ctlrep"><button class="wrep tbtn" type="button" id="playCont"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>연속 재생<kbd class="kc">C</kbd></button><button class="wrep tbtn" type="button" id="playAll"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>묶음 재생<kbd class="kc">G</kbd></button></div>
       <div class="kbinfo" id="kbinfo"><span><kbd class="kc">Space</kbd>일시정지·재개</span><span><kbd class="kc">Esc</kbd>정지</span><span><kbd class="kc">Enter</kbd>무한 반복</span><span><kbd class="kc">←</kbd>이전 문장</span><span><kbd class="kc">→</kbd>다음 문장</span><span><kbd class="kc">?</kbd>단축키 목록</span></div>
       <div class="class-row" id="classRow" aria-label="가리기">
@@ -1388,6 +1381,6 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></span><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></span><span class="bt">정지</span></button></div>
   <p class="foot" id="voiceNote">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스영어(v1.28) 2026.11.24.</p>
+  <p class="ver">호텔서비스영어(v1.29) 2026.11.24.</p>
 </div>
-<script src="data.js?v=1.28"></script><script src="app.js?v=1.28"></script></body></html>
+<script src="data.js?v=1.29"></script><script src="app.js?v=1.29"></script></body></html>
