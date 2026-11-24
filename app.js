@@ -555,7 +555,7 @@ function renderMock(b){
   const pick = h("div", {class: "mkpick"}, h("div", {class: "mkpt"}, "분야 선택"), radios,
     h("div", {class: "mkgo"},
       /* 재생 속도 (RYU 2026-11-24): the same setting as the other bundles, also changed by the - = keys */
-      h("label", {class: "mkrate"}, h("span", null, "속도"), h("select", {id: "mkRate", class: "bsel", "aria-label": "속도", onchange: ev => { setRate(ev.target.value); save(); }},
+      h("label", {class: "mkrate"}, h("span", null, "재생 속도"), h("select", {id: "mkRate", class: "bsel", "aria-label": "재생 속도", onchange: ev => { setRate(ev.target.value); save(); }},
         [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].map(v => h("option", {value: String(v), selected: v === (+S.rate || 1) ? true : null}, "×" + v.toFixed(1))))),
       h("button", {class: "btn mkstart", type: "button", onclick: start}, "문제 내기")));
   draw();
