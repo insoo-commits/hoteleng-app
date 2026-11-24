@@ -719,7 +719,7 @@ if (/^https?:/.test(location.protocol) && "serviceWorker" in navigator) navigato
 (function(){
   const st = $("stick"), mb = document.querySelector(".menubox"), sg = $("stickG"), g = $("groups");
   if (!st || !mb || !("IntersectionObserver" in window)) return;
-  const sync = () => { sg.innerHTML = g.innerHTML; $("stickT").textContent = [...$("bselBtn").querySelectorAll(".ddn,.ddk")].map(x => x.textContent).join(" "); const on = sg.querySelector('[aria-pressed="true"]'); if (on && !st.hidden) on.scrollIntoView({block: "nearest", inline: "center"}); };
+  const sync = () => { sg.innerHTML = g.innerHTML; sg.querySelectorAll(".glide").forEach(x => x.remove()); $("stickT").textContent = [...$("bselBtn").querySelectorAll(".ddn,.ddk")].map(x => x.textContent).join(" "); const on = sg.querySelector('[aria-pressed="true"]'); if (on && !st.hidden) on.scrollIntoView({block: "nearest", inline: "center"}); };
   new IntersectionObserver(es => { const e = es[0]; const show = !e.isIntersecting && e.boundingClientRect.bottom < 0; if (show === !st.hidden) return; st.hidden = !show; if (show) sync(); }).observe(mb);
   new MutationObserver(() => { if (!st.hidden) sync(); }).observe(g, {childList: true, subtree: true, attributes: true});
   new MutationObserver(() => { if (!st.hidden) sync(); }).observe($("bselBtn"), {childList: true, subtree: true, characterData: true});
@@ -732,3 +732,15 @@ function fitBsel(){ const b = $("bselBtn"); if (!b) return; b.classList.remove("
   if ((o && o.scrollWidth > o.clientWidth + 1) || b.scrollWidth > b.clientWidth + 1 || (k && k.scrollWidth > k.clientWidth + 1)) b.classList.add("two"); }
 addEventListener("resize", () => fitBsel());
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitBsel());
+
+// PC: a soft pill with a line under it slides along the menu after the mouse (RYU 2026-11-24)
+(function(){
+  if (!matchMedia("(hover:hover) and (pointer:fine)").matches) return;
+  for (const id of ["groups", "stickG"]) { const nav = $(id); if (!nav) continue;
+    const gl = () => { let e = nav.querySelector(".glide"); if (!e) { e = h("span", {class: "glide", "aria-hidden": "true"}); nav.appendChild(e); } return e; };
+    nav.addEventListener("mouseover", ev => { const t = ev.target.closest(".group"); if (!t || !nav.contains(t)) return; const e = gl(), first = e.style.opacity !== "1";
+      if (first) { e.style.transition = "none"; e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.offsetWidth; e.style.transition = ""; }
+      e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.style.opacity = "1"; });
+    nav.addEventListener("mouseleave", () => { const e = nav.querySelector(".glide"); if (e) e.style.opacity = "0"; });
+  }
+})();
