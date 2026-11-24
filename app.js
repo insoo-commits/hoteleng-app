@@ -545,7 +545,7 @@ function renderMock(b){
       part("a", "모범 답변 보기", [h("div", {class: "mkans"}, q[2].map(a => h("div", {class: "mkline"}, h("div", {class: "k"}, a[0]), h("div", {class: "m"}, a[1])))),
         h("button", {class: "btn mkplay", type: "button", onclick: ev => sayList(ev, q[2].map(a => [a[0], va(a[0])]))}, ico("spk"), "답변 듣기")]),
       q[3] ? part("t", "질문 의도·답변 방향 보기", h("div", {class: "tip"}, h("p", {class: "note-ko"}, h("b", null, "질문 의도 "), q[3]), h("p", {class: "note-ko"}, h("b", null, "답변 방향 "), q[4]))) : null,
-      h("div", {class: "mkfoot"}, mkPic(), h("button", {class: "btn mknext", type: "button", onclick: () => { stopPlay(); next(); draw(); }}, "다른 문제 →")));
+      h("div", {class: "mkfoot"}, mkPic(), h("button", {class: "btn mknext", type: "button", onclick: () => { stopPlay(); next(); draw(); }}, "다음 문제 →")));
   };
   const start = () => { stopPlay(); st.order = []; st.i = -1; st.on = true; next(); draw(); box.scrollIntoView({block: "nearest"}); };
   const radios = h("div", {class: "mkareas", role: "radiogroup"}, areas.map((a, i) => {
