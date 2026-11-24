@@ -1311,7 +1311,7 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 }
 .controls .ctl>span.repw{display:inline-flex}
 /* phone: the three 가리기 boxes on one line, without the notes in brackets (RYU 2026-11-24) */
-@media (max-width:600px){.class-row .pn{display:none}.controls .class-row{flex-wrap:nowrap;gap:0 10px;font-size:min(12.5px,3.3vw)}.class-row label{gap:3px}.class-row input{margin:0;width:15px;height:15px}}
+@media (max-width:600px){.class-row .lnote{display:none}.controls .class-row{flex-wrap:nowrap;gap:0 10px;font-size:min(12.5px,3.3vw)}.class-row label{gap:3px}.class-row input{margin:0;width:15px;height:15px}}
 @media (max-width:360px){.controls .class-row{gap:0 6px}}
 /* 연속 재생 · 묶음 재생 like lao-app: one pair, outer ends round, inner ends nearly square; key badge filled (RYU 2026-11-23) */
 .controls #ctlrep{gap:6px}
@@ -1380,13 +1380,13 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
       <div class="kbinfo" id="kbinfo"><span><kbd class="kc">Space</kbd>일시정지·재개</span><span><kbd class="kc">Esc</kbd>정지</span><span><kbd class="kc">Enter</kbd>무한 반복</span><span><kbd class="kc">←</kbd>이전 문장</span><span><kbd class="kc">→</kbd>다음 문장</span><span><kbd class="kc">?</kbd>단축키 목록</span></div>
       <div class="class-row" id="classRow" aria-label="가리기">
         <label><input type="checkbox" id="tKo">한국어 뜻 가리기</label>
-        <label><input type="checkbox" id="tEn">영어 가리기<span class="pn"> (통역 연습)</span></label>
-        <label><input type="checkbox" id="tSt">직원 대사 가리기<span class="pn"> (역할극)</span></label></div>
+        <label><input type="checkbox" id="tEn">영어 가리기<span class="lnote"> (통역 연습)</span></label>
+        <label><input type="checkbox" id="tSt">직원 대사 가리기<span class="lnote"> (역할극)</span></label></div>
     </div>
     <div class="body" id="view"></div>
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></span><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></span><span class="bt">정지</span></button></div>
   <p class="foot" id="voiceNote">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스영어(v1.35) 2026.11.24.</p>
+  <p class="ver">호텔서비스영어(v1.36) 2026.11.24.</p>
 </div>
-<script src="data.js?v=1.35"></script><script src="app.js?v=1.35"></script></body></html>
+<script src="data.js?v=1.36"></script><script src="app.js?v=1.36"></script></body></html>
