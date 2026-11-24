@@ -1297,6 +1297,30 @@ body:not(.show-lis) .tq.lis .tqq,body:not(.show-lis) .tq.lis .topt .ot{filter:bl
 .drill .dpat .drep{margin-left:auto}
 .wrep.drep{position:static;flex:none;display:inline-flex;align-items:center;gap:6px}
 .sec .dlg .line,.sec .drill .rows .line{padding-right:14px!important}
+/* 모의 면접 (RYU 2026-11-24) */
+.mkpick{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:16px 0 0}
+.mkpt{font-weight:700;margin-bottom:8px}
+.mkareas{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:6px 24px}
+.mkarea{display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer}
+.mkarea input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.mkarea small{color:var(--muted);margin-left:auto;white-space:nowrap}
+.mkgo{display:flex;justify-content:flex-end;margin-top:10px}
+.mkstart{font-weight:700;background:var(--accent);color:var(--sheet);border-color:var(--accent)}
+.mock[hidden]{display:none}
+.mock{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:16px 0}
+.mkhead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:var(--accent-soft)}
+.mkn{font-weight:700;color:var(--accent)}
+.mkpart{padding:12px 16px;border-top:1px solid var(--line)}
+.mkchk{display:inline-flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.mkchk input{width:18px;height:18px;margin:0}
+.mkbody{margin-top:10px}.mkbody[hidden]{display:none}
+.mkbody .k{font-size:18px;line-height:1.5}.mkbody .m{color:var(--muted);margin-top:2px}
+.mkline+.mkline{margin-top:10px}
+.mkplay{display:inline-flex;align-items:center;gap:6px;font-weight:600}.mkplay.on{background:var(--accent-soft);border-color:var(--accent)}
+.mk-a .mkplay{margin-top:10px}
+.mk-t .tip p{margin:4px 0}
+.mkfoot{padding:14px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end}
+.mknext{font-weight:700}
 /* one side of every dialogue (면접관·손님·A) gets a faint tint so the two speakers are easy to tell apart (RYU 2026-11-24) */
 .dlg .line.gu{background:color-mix(in srgb,var(--accent-soft) 45%,var(--sheet))}
 .dlg .line.gu.now,.dlg .line.now{background:var(--accent-soft)}
@@ -1387,6 +1411,6 @@ body:not(.show-lis) .tq.p34 .tqs,body:not(.show-lis) .tq.p34 .topt .ot{filter:no
   </section>
   <div class="player" id="player" hidden><span class="t" id="pt"></span><button id="ppause" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></span><span class="bt">일시정지</span></button><button id="pstop" type="button"><span class="pico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg></span><span class="bt">정지</span></button></div>
   <p class="foot" id="voiceNote">🔊 남자와 여자는 서로 다른 음성으로 들려줍니다. 녹음 파일이 없는 문장은 기기의 영어 음성으로 읽습니다.</p>
-  <p class="ver">호텔서비스영어(v1.36) 2026.11.24.</p>
+  <p class="ver">호텔서비스영어(v1.37) 2026.11.24.</p>
 </div>
-<script src="data.js?v=1.36"></script><script src="app.js?v=1.36"></script></body></html>
+<script src="data.js?v=1.37"></script><script src="app.js?v=1.37"></script></body></html>

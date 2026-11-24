@@ -31,6 +31,7 @@ const gOf = c => +c.split("-")[0], sOf = c => c.split("-").slice(0, 2).join("-")
 const HELP = G.length;    // 도움말 is the last menu, with sub-tabs and bundles like the others (kor-app / lao-app)
 const HELP0 = G[HELP - 1][1][0][1][0];
 const isInfo = c => !!(B[c] && B[c].info);
+const isMock = c => !!(B[c] && B[c].mk);
 
 /* ---------- state ---------- */
 const LS = "hoteleng-v2";
@@ -160,7 +161,7 @@ function segs(el){
   if (el.dataset.say2) out.push([el.dataset.v2 || "f", el.dataset.say2]);
   return out;
 }
-const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) ? c : undefined; };
+const nextCode = () => { const c = ORDER[at.get(S.code) + 1]; return c && !isInfo(c) && !isMock(c) ? c : undefined; };
 function chainOn(){ const nx = nextCode(); if (!nx){ stopPlay(); return; } go(nx); gap(500).then(() => playBundle(true)); }
 /* plays elements in order, each S.rep times (Enter: the current one without end); chain = go on to the next bundles (C) */
 /* keep the sentence being read in view: when it reaches the bottom 10% of the screen (or is above it),
@@ -224,7 +225,7 @@ function groupRep(ev, els){
 const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
 function playBundle(chain){
   const cr = $("ctlrep");
-  if (query || isInfo(S.code)) return;
+  if (query || isInfo(S.code) || isMock(S.code)) return;
   if (S.mode === "cards"){ playCardsAll(chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle"; return; }
   if (S.mode !== "learn") return;
   const els = bundleEls();
@@ -517,6 +518,42 @@ function renderSearch(){
 }
 
 /* ---------- help ---------- */
+/* ---------- 모의 면접 (RYU 2026-11-24): one question at a time, drawn at random; question, answer and its intent hidden until ticked ---------- */
+const MOCKQ = {area: 0, order: [], i: -1, on: false};
+function renderMock(b){
+  /* b.mk: [[분야, [question, 뜻, [[answer, 뜻]…], 의도, 답변 방향]…]…]; 분야 0 = 전체 */
+  const areas = [["전체", b.mk.flatMap(g => g[1])], ...b.mk], st = MOCKQ;
+  const pool = () => areas[st.area][1];
+  const next = () => { const all = pool(); st.i++; if (st.i >= st.order.length){ const last = st.order[st.order.length - 1]; st.order = shuffle(all.map((x, i) => i)); if (st.order.length > 1 && st.order[0] === last) st.order.push(st.order.shift()); st.i = 0; } };
+  const vq = t => AUD[clipKey(t, "m")] ? "m" : "f", va = t => AUD[clipKey(t, "f")] ? "f" : "m";
+  const sayList = (ev, list) => { const btn = ev.currentTarget; if (btn.classList.contains("on")){ stopPlay(); return; } stopPlay(); const tok = ++P.tok; btn.classList.add("on");
+    (async () => { for (const [t, v] of list){ if (!(await say(tok, t, v))) break; await sleep(250); } btn.classList.remove("on"); if (tok === P.tok) stopPlay(); })(); };
+  const box = h("div", {class: "mock"});
+  const draw = () => {
+    if (!st.on){ box.hidden = true; return; } box.hidden = false;
+    const all = pool(), q = all[st.order[st.i]];
+    const part = (id, label, body) => { const in_ = h("input", {type: "checkbox"}), bd = h("div", {class: "mkbody", hidden: true}, body);
+      in_.addEventListener("change", () => { bd.hidden = !in_.checked; });
+      return h("div", {class: "mkpart mk-" + id}, h("label", {class: "mkchk"}, in_, label), bd); };
+    box.replaceChildren(
+      h("div", {class: "mkhead"}, h("span", {class: "mkn"}, areas[st.area][0] + " · 문제 " + (st.i + 1) + " / " + all.length),
+        h("button", {class: "btn mkplay", type: "button", onclick: ev => sayList(ev, [[q[0], vq(q[0])]])}, ico("spk"), "질문 듣기")),
+      part("q", "질문 보기", [h("div", {class: "k"}, q[0]), h("div", {class: "m"}, q[1])]),
+      part("a", "모범 답변 보기", [h("div", {class: "mkans"}, q[2].map(a => h("div", {class: "mkline"}, h("div", {class: "k"}, a[0]), h("div", {class: "m"}, a[1])))),
+        h("button", {class: "btn mkplay", type: "button", onclick: ev => sayList(ev, q[2].map(a => [a[0], va(a[0])]))}, ico("spk"), "답변 듣기")]),
+      q[3] ? part("t", "질문 의도·답변 방향 보기", h("div", {class: "tip"}, h("p", {class: "note-ko"}, h("b", null, "질문 의도 "), q[3]), h("p", {class: "note-ko"}, h("b", null, "답변 방향 "), q[4]))) : null,
+      h("div", {class: "mkfoot"}, h("button", {class: "btn mknext", type: "button", onclick: () => { stopPlay(); next(); draw(); }}, "다른 문제 →")));
+  };
+  const start = () => { stopPlay(); st.order = []; st.i = -1; st.on = true; next(); draw(); box.scrollIntoView({block: "nearest"}); };
+  const radios = h("div", {class: "mkareas", role: "radiogroup"}, areas.map((a, i) => {
+    const r = h("input", {type: "radio", name: "mkarea", value: String(i), checked: i === st.area ? true : null});
+    r.addEventListener("change", () => { if (r.checked){ st.area = i; st.on = false; stopPlay(); draw(); } });
+    return h("label", {class: "mkarea"}, r, h("span", null, a[0]), h("small", null, a[1].length + "문제")); }));
+  const pick = h("div", {class: "mkpick"}, h("div", {class: "mkpt"}, "분야 선택"), radios,
+    h("div", {class: "mkgo"}, h("button", {class: "btn mkstart", type: "button", onclick: start}, "문제 내기")));
+  draw();
+  return [pick, box, pnRow(b.code)];
+}
 function renderInfo(b){
   const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art];
 }
@@ -529,6 +566,7 @@ function render(){
   $("band").hidden = false; $("controls").hidden = !!b.info;
   drawBand(b);
   if (b.info){ view.replaceChildren(...renderInfo(b)); return; }
+  if (b.mk){ $("controls").hidden = true; view.replaceChildren(...renderMock(b).flat(9).filter(Boolean)); return; }
   $$(".seg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.mode === S.mode ? "true" : "false"));
   $("ctlrep").hidden = S.mode === "quiz"; $("classRow").hidden = S.mode !== "learn"; $("kbinfo").hidden = S.mode === "quiz";
   const parts = S.mode === "cards" ? renderCards(b) : S.mode === "quiz" ? renderQuiz(b) : renderLearn(b);
