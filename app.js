@@ -276,6 +276,7 @@ function drawPicker(){
   const b = B[S.code];
   const lab = (c, x) => [h("span", {class: "ddn"}, "[" + c + "]"), h("span", {class: "ddk"}, x.t), x.en ? h("span", {class: "ddo"}, x.en) : null];
   $("bselBtn").replaceChildren(...lab(S.code, b));
+  fitBsel();
   $("bselList").replaceChildren(...sibs(S.code).map(c => h("button", {type: "button", class: "ddi", role: "option", "aria-selected": c === S.code ? "true" : "false",
     onclick: () => { ddClose(); go(c); }}, ...lab(c, B[c]))));
 }
@@ -713,3 +714,21 @@ if (/^https?:/.test(location.protocol) && "serviceWorker" in navigator) navigato
   });
   try { if (localStorage.getItem("hoteleng-audio-saved")) st.textContent = "(완료)"; } catch (er) {}
 })();
+
+// menu bar that stays at the top while reading down (design A, RYU 2026-11-24)
+(function(){
+  const st = $("stick"), mb = document.querySelector(".menubox"), sg = $("stickG"), g = $("groups");
+  if (!st || !mb || !("IntersectionObserver" in window)) return;
+  const sync = () => { sg.innerHTML = g.innerHTML; $("stickT").textContent = [...$("bselBtn").querySelectorAll(".ddn,.ddk")].map(x => x.textContent).join(" "); const on = sg.querySelector('[aria-pressed="true"]'); if (on && !st.hidden) on.scrollIntoView({block: "nearest", inline: "center"}); };
+  new IntersectionObserver(es => { const e = es[0]; const show = !e.isIntersecting && e.boundingClientRect.bottom < 0; if (show === !st.hidden) return; st.hidden = !show; if (show) sync(); }).observe(mb);
+  new MutationObserver(() => { if (!st.hidden) sync(); }).observe(g, {childList: true, subtree: true, attributes: true});
+  new MutationObserver(() => { if (!st.hidden) sync(); }).observe($("bselBtn"), {childList: true, subtree: true, characterData: true});
+  sg.addEventListener("click", e => { const t = e.target.closest(".group"); if (!t) return; const i = [...sg.querySelectorAll(".group")].indexOf(t); const o = g.querySelectorAll(".group")[i]; if (o) o.click(); document.querySelector(".search").scrollIntoView({block: "start"}); });
+  $("stickQ").addEventListener("click", () => { window.scrollTo(0, 0); $("q").focus(); });
+})();
+
+// bundle title button: when the English name does not fit on one line, it goes to a second line (no "…") (RYU 2026-11-24)
+function fitBsel(){ const b = $("bselBtn"); if (!b) return; b.classList.remove("two"); const o = b.querySelector(".ddo"), k = b.querySelector(".ddk");
+  if ((o && o.scrollWidth > o.clientWidth + 1) || b.scrollWidth > b.clientWidth + 1 || (k && k.scrollWidth > k.clientWidth + 1)) b.classList.add("two"); }
+addEventListener("resize", () => fitBsel());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitBsel());
