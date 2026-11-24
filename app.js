@@ -553,7 +553,11 @@ function renderMock(b){
     r.addEventListener("change", () => { if (r.checked){ st.area = i; st.on = false; stopPlay(); draw(); } });
     return h("label", {class: "mkarea"}, r, h("span", null, a[0]), h("small", null, a[1].length + "문제")); }));
   const pick = h("div", {class: "mkpick"}, h("div", {class: "mkpt"}, "분야 선택"), radios,
-    h("div", {class: "mkgo"}, h("button", {class: "btn mkstart", type: "button", onclick: start}, "문제 내기")));
+    h("div", {class: "mkgo"},
+      /* 재생 속도 (RYU 2026-11-24): the same setting as the other bundles, also changed by the - = keys */
+      h("label", {class: "mkrate"}, h("span", null, "속도"), h("select", {id: "mkRate", class: "bsel", "aria-label": "속도", onchange: ev => { setRate(ev.target.value); save(); }},
+        [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].map(v => h("option", {value: String(v), selected: v === (+S.rate || 1) ? true : null}, "×" + v.toFixed(1))))),
+      h("button", {class: "btn mkstart", type: "button", onclick: start}, "문제 내기")));
   draw();
   return [pick, box, pnRow(b.code)];
 }
@@ -591,7 +595,7 @@ addEventListener("hashchange", route);
 $$(".seg button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.mode; stopPlay(); save(); render(); }));
 $("repSel").value = S.rep;
 /* speed: 0.7–1.5 by 0.1, select box + keys - = (or - +, numpad − +) (RYU 2026-11-24) */
-function setRate(r){ r = Math.round(Math.min(1.5, Math.max(0.7, +r || 1)) * 10) / 10; S.rate = r; $("rateSel").value = String(r); try { AEL.playbackRate = r; } catch (er) {} }
+function setRate(r){ r = Math.round(Math.min(1.5, Math.max(0.7, +r || 1)) * 10) / 10; S.rate = r; $("rateSel").value = String(r); const mr = $("mkRate"); if (mr) mr.value = String(r); try { AEL.playbackRate = r; } catch (er) {} }
 setRate(S.rate);
 $("rateSel").onchange = e => { setRate(e.target.value); save(); };
 $("repSel").onchange = e => { S.rep = +e.target.value; save(); };
