@@ -739,8 +739,31 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitB
   for (const id of ["groups", "stickG"]) { const nav = $(id); if (!nav) continue;
     const gl = () => { let e = nav.querySelector(".glide"); if (!e) { e = h("span", {class: "glide", "aria-hidden": "true"}); nav.appendChild(e); } return e; };
     nav.addEventListener("mouseover", ev => { const t = ev.target.closest(".group"); if (!t || !nav.contains(t)) return; const e = gl(), first = e.style.opacity !== "1";
-      if (first) { e.style.transition = "none"; e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.offsetWidth; e.style.transition = ""; }
-      e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.style.opacity = "1"; });
+      if (first) { e.style.transition = "none"; e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.style.top = t.offsetTop + "px"; e.style.height = t.offsetHeight + "px"; e.offsetWidth; e.style.transition = ""; }
+      e.style.left = t.offsetLeft + "px"; e.style.width = t.offsetWidth + "px"; e.style.top = t.offsetTop + "px"; e.style.height = t.offsetHeight + "px"; e.style.opacity = "1"; });
     nav.addEventListener("mouseleave", () => { const e = nav.querySelector(".glide"); if (e) e.style.opacity = "0"; });
+  }
+})();
+
+// PC: menu rows that do not fit get a round arrow button at the end that has more; the mouse wheel moves the row too (RYU 2026-11-24)
+(function(){
+  if (!matchMedia("(hover:hover) and (pointer:fine)").matches) return;
+  const chev = d => { const b = h("button", {class: "hsb " + (d < 0 ? "l" : "r"), type: "button", "aria-label": d < 0 ? "왼쪽 메뉴 보기" : "오른쪽 메뉴 보기"}); b.hidden = true;
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (d < 0 ? "m15 5-7 7 7 7" : "m9 5 7 7-7 7") + '"/></svg>'; return b; };
+  for (const id of ["groups", "subs", "stickG"]) { const nav = $(id); if (!nav) continue;
+    const w = h("div", {class: "hs"}); nav.parentNode.insertBefore(w, nav); w.appendChild(nav);
+    const l = chev(-1), r = chev(1); w.append(l, r);
+    const upd = () => { const m = nav.scrollWidth - nav.clientWidth, x = nav.scrollLeft; l.hidden = !(m > 2 && x > 2); r.hidden = !(m > 2 && x < m - 2); w.classList.toggle("ml", !l.hidden); w.classList.toggle("mr", !r.hidden); };
+    const mv = d => nav.scrollBy({left: d * Math.max(120, nav.clientWidth * .6), behavior: "smooth"});
+    l.addEventListener("click", () => mv(-1)); r.addEventListener("click", () => mv(1));
+    nav.addEventListener("scroll", upd, {passive: true});
+    nav.addEventListener("wheel", e => { if (nav.scrollWidth - nav.clientWidth < 3 || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; e.preventDefault(); nav.scrollLeft += e.deltaY; }, {passive: false});
+    addEventListener("resize", upd);
+    const show = () => { const t = nav.querySelector('[aria-pressed="true"],[aria-selected="true"]'); if (t) { const a = t.offsetLeft - 40, z = t.offsetLeft + t.offsetWidth + 40 - nav.clientWidth; if (nav.scrollLeft > a) nav.scrollLeft = Math.max(0, a); else if (nav.scrollLeft < z) nav.scrollLeft = z; } upd(); };
+    new MutationObserver(() => requestAnimationFrame(show)).observe(nav, {childList: true, subtree: true, attributes: true, attributeFilter: ["aria-pressed", "aria-selected"]});
+    requestAnimationFrame(show);
+    if ("ResizeObserver" in window) new ResizeObserver(upd).observe(nav);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(upd);
+    upd();
   }
 })();
