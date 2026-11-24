@@ -559,7 +559,7 @@ function renderMock(b){
         [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].map(v => h("option", {value: String(v), selected: v === (+S.rate || 1) ? true : null}, "×" + v.toFixed(1))))),
       h("button", {class: "btn mkstart", type: "button", onclick: start}, "문제 내기")));
   draw();
-  return [pick, box, pnRow(b.code)];
+  return [pick, box];   // no 이전·다음 묶음 buttons here (RYU 2026-11-24)
 }
 function renderInfo(b){
   const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art, pnRow(b.code)];   // 이전·다음 묶음 in 도움말 too (RYU 2026-11-24)
