@@ -558,7 +558,7 @@ function renderMock(b){
   return [pick, box, pnRow(b.code)];
 }
 function renderInfo(b){
-  const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art];
+  const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art, pnRow(b.code)];   // 이전·다음 묶음 in 도움말 too (RYU 2026-11-24)
 }
 
 /* ---------- render and routing ---------- */
