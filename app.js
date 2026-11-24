@@ -288,9 +288,11 @@ $("bselBtn").addEventListener("click", e => {
 });
 document.addEventListener("click", ev => { if (!ev.target.closest("#bsel")) ddClose(); });
 function drawBand(b){
-  $("bandin").replaceChildren(...[$("bsel"),
-    b.i ? h("p", {class: "intro"}, b.i) : null,
-    b.tp && b.tp.length ? h("div", {class: "tipbox"}, b.tp.map(t => h("p", null, "• " + t))) : null].filter(Boolean));
+  const txt = [b.i ? h("p", {class: "intro"}, b.i) : null,
+    b.tp && b.tp.length ? h("div", {class: "tipbox"}, b.tp.map(t => h("p", null, "• " + t))) : null].filter(Boolean);
+  /* a small drawing of the bundle's scene, left of the text (RYU 2026-11-24) */
+  let pic = null; if (b.sc && DATA.sc && DATA.sc[b.sc] && txt.length){ pic = h("div", {class: "bandpic", "aria-hidden": "true"}); pic.innerHTML = DATA.sc[b.sc]; }
+  $("bandin").replaceChildren($("bsel"), ...(pic ? [h("div", {class: "bandrow"}, pic, h("div", {class: "bandtxt"}, txt))] : txt));
 }
 
 /* ---------- sentence view (문장보기) ---------- */
