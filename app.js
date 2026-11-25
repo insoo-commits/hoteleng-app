@@ -1,3 +1,61 @@
+/* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
+   Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
+   from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
+   Packs are kept in IndexedDB (store "c", key "p:" + code, value {h: hash, b: bytes}), next to the single clips that older versions saved
+   there (key = clip name); those still play. Same file can be copied to the other apps: makeAudioPack({db: "<their IndexedDB name>"}). */
+function makeAudioPack(opt){
+  const IDX = window.AUDIO_INDEX || {}, PACKS = window.AUDIO_PACKS || [], base = opt.base || "audio/";
+  const byCode = new Map(PACKS.map((p, i) => [p[0], i]));
+  const MEM = new Map(), PEND = new Map(), LIMIT = 4000;   // clip name -> blob URL (about 25 MB at most)
+  let _db;
+  const db = () => _db || (_db = new Promise((res, rej) => { const r = indexedDB.open(opt.db, 1); r.onupgradeneeded = () => r.result.createObjectStore("c");
+    r.onsuccess = () => res(r.result); r.onerror = () => { _db = null; rej(r.error); }; }));
+  const get = k => db().then(d => new Promise(res => { const q = d.transaction("c").objectStore("c").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); })).catch(() => null);
+  const put = (k, v) => db().then(d => new Promise(res => { const tx = d.transaction("c", "readwrite"); tx.objectStore("c").put(v, k); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); })).catch(() => false);
+  const remember = (k, bytes) => {
+    if (MEM.has(k)) return;
+    if (MEM.size >= LIMIT){ let n = 0; for (const [x, u] of MEM){ URL.revokeObjectURL(u); MEM.delete(x); if (++n >= 500) break; } }
+    MEM.set(k, URL.createObjectURL(new Blob([bytes], {type: "audio/mpeg"})));
+  };
+  function unpack(buf){
+    const n = new DataView(buf).getUint32(0, true), table = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n))), at = 4 + n;
+    for (const [k, o, l] of table) remember(k, new Uint8Array(buf, at + o, l));
+  }
+  const fetchPack = i => fetch(base + "p/" + PACKS[i][0] + ".bin?h=" + PACKS[i][1]).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
+  /* load pack i into memory: IndexedDB first, then the network (and keep it in IndexedDB for next time and offline) */
+  function load(i){
+    if (i == null || !PACKS[i]) return Promise.resolve(false);
+    if (PEND.has(i)) return PEND.get(i);
+    const [code, h] = PACKS[i];
+    const p = get("p:" + code).then(s => s && s.h === h ? s.b : fetchPack(i).then(b => { put("p:" + code, {h, b}); return b; }))
+      .then(b => { unpack(b); return true; })
+      .catch(() => { PEND.delete(i); return false; });   // failed: try again next time
+    PEND.set(i, p); return p;
+  }
+  return {
+    has: k => k in IDX,
+    now: k => MEM.get(k) || null,          // ready to play this moment, or null
+    /* blob URL of a clip, or null when it cannot be had (then the device voice speaks) */
+    url(k){
+      if (MEM.has(k)) return Promise.resolve(MEM.get(k));
+      if (!(k in IDX)) return Promise.resolve(null);
+      return get(k).then(b => { if (b){ remember(k, b); return MEM.get(k); }
+        return load(IDX[k]).then(() => MEM.get(k) || null); });
+    },
+    warm: code => load(byCode.get(code)),   // a lesson is opened: get its clips ready
+    count: () => PACKS.length,
+    sig: () => PACKS.map(p => p[1]).join("").length ? String(PACKS.length) + ":" + PACKS.reduce((s, p) => (s * 31 + parseInt(p[1], 16)) % 2147483647, 7) : "",
+    /* save every pack in IndexedDB for offline use; tick(done, total) */
+    async saveAll(tick){
+      let i = 0, done = 0, bad = 0; const N = PACKS.length;
+      await Promise.all(Array.from({length: 4}, async () => { while (i < N){ const j = i++, [code, h] = PACKS[j];
+        try { const s = await get("p:" + code); if (!(s && s.h === h)){ const b = await fetchPack(j); if (!(await put("p:" + code, {h, b}))) bad++; } } catch (e) { bad++; }
+        tick(++done, N); } }));
+      return bad;
+    }
+  };
+}
+
 /* 호텔서비스 영어 — app logic. DATA (bundles) and AUD (mp3 clips) are injected by build.py. */
 const $ = id => document.getElementById(id), $$ = s => [...document.querySelectorAll(s)];
 const ICO = {
@@ -73,6 +131,11 @@ function pickVoice(code){
 const vOf = (b, who) => (b && b.vo && b.vo[who]) || (MALE.has(who) ? "m" : "f");
 const clipKey = (t, v) => v + "|" + t.trim();
 const AEL = new Audio();
+/* audio packs (RYU 2026-11-25: "묶음마다 묶어서 개수를 줄여서", like kor-app v2.65): on the site AUD[key] = "<clip id>.<home pack number>" and the
+   clips of one bundle come in one file audio/p/<code>.bin (audiopack.js, kept in IndexedDB "hoteleng-audio"). The preview has data: URIs instead. */
+window.AUDIO_PACKS = typeof APK !== "undefined" ? APK : [];
+window.AUDIO_INDEX = {}; for (const k in AUD){ const u = AUD[k]; if (u.slice(0, 5) !== "data:"){ const i = u.indexOf("."); window.AUDIO_INDEX[u.slice(0, i)] = +u.slice(i + 1); } }
+const AP = makeAudioPack({db: "hoteleng-audio"});
 /* phones (iPhone above all) only let a page play sound that starts from a tap: the first tap plays a short silent mp3 on the
    same audio element, so later clips that start after a pause can play too (RYU 2026-11-23: no sound on the phone) */
 const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NYwAAAAAAAAAAAAEluZm8AAAAPAAAABwAAAqwAXl5eXl5eXl5eXl5eXl55eXl5eXl5eXl5eXl5eZSUlJSUlJSUlJSUlJSUr6+vr6+vr6+vr6+vr6+vysrKysrKysrKysrKysrl5eXl5eXl5eXl5eXl5f//////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQEIAAAAAAAAAKsXdbMjQAAAAAAAAAAAAAA//MoxAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxDsAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxHYAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVV//MoxLEAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MoxMQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
@@ -103,7 +166,19 @@ function speakOne(text, v){
     const done = () => { if (CUR_END === done) CUR_END = null; res(); };
     CUR_END = done;
     const src = AUD[clipKey(text, v)];
-    if (src){ AEL.ontimeupdate = null; AEL.loop = false; AEL.src = src; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); return; }
+    if (src){
+      const play = url => { if (CUR_END !== done) return; if (!url) return tts();
+        AEL.ontimeupdate = null; AEL.loop = false; AEL.src = url; AEL.playbackRate = +S.rate || 1; AEL.onended = AEL.onerror = done; AEL.play().catch(done); };
+      if (src.slice(0, 5) === "data:") return play(src);
+      const id = src.slice(0, src.indexOf(".")), now = AP.now(id);
+      if (now) return play(now);
+      /* the pack is not in memory yet: keep the player going with the silent mp3 (a phone lets sound start only from the tap,
+         and stops a page whose sound stops), then play the clip when the pack arrives; the device voice if it cannot be had */
+      try { AEL.onended = AEL.onerror = null; AEL.ontimeupdate = null; if (AEL.src !== SILENT) AEL.src = SILENT; AEL.loop = true; AEL.playbackRate = 1; const pr = AEL.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+      AP.url(id).then(play, () => play(null)); return;
+    }
+    tts();
+   function tts(){
     if (!synth){ setTimeout(done, 400); return; }
     const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = +S.rate || 1;
     /* Chrome can drop an utterance it has garbage-collected and never send onend, which stopped repeats:
@@ -113,6 +188,7 @@ function speakOne(text, v){
     let wd = setTimeout(function tick(){ if (CUR_END !== done) return; if (P.paused || synth.speaking && !synth.paused && Date.now() - t0 < est * 2) { wd = setTimeout(tick, 500); return; } done(); }, est); const t0 = Date.now();
     const pk = pickVoice(v); if (pk.v) u.voice = pk.v; u.pitch = pk.pitch; u.rate = Math.min(2, (+S.rate || 1) * (pk.rate || 1));
     u.onend = u.onerror = done; synth.speak(u);
+   }
   });
 }
 async function waitPause(tok){ while (P.paused && tok === P.tok) await sleep(150); return tok === P.tok; }
@@ -588,6 +664,7 @@ function go(code){ if (location.hash === "#" + code) route(); else location.hash
 function route(){
   const c = decodeURIComponent(location.hash.replace(/^#/, ""));
   if (at.has(c)) S.code = c; else if (c === "help") S.code = HELP0;
+  AP.warm(S.code);   // get this bundle's clips ready
   S.lastA[gOf(S.code)] = S.code; S.lastS[sOf(S.code)] = S.code;
   stopPlay(); quiz = null; save();
   if (query || $("q").value){ query = ""; $("q").value = ""; }   // moving to a bundle ends the search
@@ -691,28 +768,23 @@ if (location.hash && (at.has(decodeURIComponent(location.hash.slice(1))) || loca
 /* ---------- offline: service worker + "음성 mp3 내려받기" (like lao-app; only on the web site, not in the preview) ---------- */
 if (/^https?:/.test(location.protocol) && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 (function(){
-  const n = $("voiceNote"), files = [...new Set(Object.values(AUD))].filter(u => /^audio\//.test(u));
-  if (!n || !files.length || !/^https?:/.test(location.protocol) || !window.indexedDB) return;
+  const n = $("voiceNote"), N = AP.count();
+  if (!n || !N || !/^https?:/.test(location.protocol) || !window.indexedDB) return;
   const p = h("p", {class: "dlp"}), a = h("a", {href: "#", class: "dla"}, "↓ 음성 mp3 내려받기 (오프라인용)"), st = h("span", {class: "dls"});
   p.append(a, " ", st); n.after(p);
-  let _db; const ADB = () => _db || (_db = new Promise((res, rej) => { const r = indexedDB.open("hoteleng-audio", 1); r.onupgradeneeded = () => r.result.createObjectStore("c"); r.onsuccess = () => res(r.result); r.onerror = () => { _db = null; rej(r.error); }; }));
-  const aput = (k, v) => ADB().then(db => new Promise(res => { const tx = db.transaction("c", "readwrite"); tx.objectStore("c").put(v, k); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); })).catch(() => false);
-  const akeys = () => ADB().then(db => new Promise(res => { const q = db.transaction("c").objectStore("c").getAllKeys(); q.onsuccess = () => res(new Set(q.result)); q.onerror = () => res(new Set()); })).catch(() => new Set());
-  const key = u => u.split("/").pop().replace(/\.mp3$/, "");
+  /* one file per bundle now (v1.67): the mark keeps which set of packs was saved, so new clips ask for another tap */
+  const mark = () => { let m = ""; try { m = localStorage.getItem("hoteleng-audio-saved") || ""; } catch (er) {} st.textContent = !m ? "" : m === AP.sig() ? "(완료)" : "(새 음성이 있어요. 다시 눌러 주세요)"; };
   let busy = false;
   a.addEventListener("click", async e => {
     e.preventDefault(); if (busy) return; busy = true;
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (er) {}
-    const have = await akeys(), q = files.filter(u => !have.has(key(u))); let done = files.length - q.length;
-    const sw = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
-    const show = () => { st.textContent = done + " / " + files.length; };
-    async function w(){ while (q.length){ const u = q.shift(); try { const r = await fetch(u); if (r.ok){ const buf = await r.arrayBuffer(); if (!sw) await aput(key(u), buf); } } catch (er) {} done++; if (done % 20 === 0 || done === files.length) show(); } }
-    show(); await Promise.all([w(), w(), w(), w(), w(), w()]);
-    const h2 = await akeys(), left = files.filter(u => !h2.has(key(u))).length;
-    st.textContent = left > 0 ? (files.length - left) + " / " + files.length + " (" + left + "개 남음, 다시 누르기)" : "(완료)";
-    busy = false; if (!left) try { localStorage.setItem("hoteleng-audio-saved", "1"); } catch (er) {}
+    let bad = 1;
+    try { bad = await AP.saveAll((d, t) => { st.textContent = Math.floor(d / t * 100) + "% (" + d + " / " + t + ")"; }); } catch (er) {}
+    if (bad) st.textContent = "(" + bad + "개 남음, 다시 누르기)";
+    else { try { localStorage.setItem("hoteleng-audio-saved", AP.sig()); } catch (er) {} mark(); }
+    busy = false;
   });
-  try { if (localStorage.getItem("hoteleng-audio-saved")) st.textContent = "(완료)"; } catch (er) {}
+  mark();
 })();
 
 // menu bar that stays at the top while reading down (design A, RYU 2026-11-24)

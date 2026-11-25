@@ -4,4 +4,4 @@
 
 - 앱: https://insoo-commits.github.io/hoteleng-app/
 - 호텔 부서별 예문: Practical Hotel English에서 복사
-- 음성: 체크인 묶음 [3-02-01]만 mp3 (16 kbps). 나머지는 기기 영어 음성.
+- 음성: 모든 묶음 mp3 (16 kbps). 파일 수를 줄이려고 묶음마다 한 파일(audio/p/<묶음>.bin)로 묶어 둡니다. 낱개 mp3는 저장소에 올리지 않습니다.
