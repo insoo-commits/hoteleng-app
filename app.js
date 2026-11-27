@@ -1,4 +1,4 @@
-const HE_VER = "v1.76";
+const HE_VER = "v1.77";
 /* app volume (2026-11-27, RYU): one level for every sound the app makes, saved per app.
    iPhone/iPad ignore audio.volume, so there the <audio> elements are routed through a Web Audio GainNode
    (only once the level is set below 100%, so normal playback stays untouched). Elsewhere audio.volume is used.
@@ -1195,7 +1195,7 @@ const LEARN = 6;
 const x = {
  hello: "Welcome! 어서 오세요!", sub: "호텔 현장에서 바로 쓰는 영어, 주제별로 쉽게",
  lead: "기초 회화부터 프런트·객실·식음료·고객 응대 실무 영어, TOEIC, 영어면접까지. 원어민 음성과 한국어 뜻, 주요 단어 메모로 공부해요.",
- st: ["묶음", "단어", "문장", "메뉴"], free: "무료",
+ st: ["묶음", "단어", "문장", "학습자"], free: "무료",
  s1: "재생 설정", s1n: "공부하면서 언제든 바꿀 수 있어요. 이 기기에 저장됩니다.",
  pass: "내 학습 설정", rep: "재생 횟수", spd: "속도", vol: "음량", theme: "화면", th: ["자동", "☀ 낮", "☾ 밤"], fz: "글자 크기", listen: "들어 보기",
  start: "시작하기", how: "사용법",
@@ -1252,7 +1252,15 @@ function heroCopy(){ return `
   <h1 class="ko">호텔서비스 영어</h1>
   <p class="losub">${esc(x.sub)}</p>
   <p class="lead">${esc(x.lead)}</p>
-  <div class="stats"><div><b>${fmt(HE.n.b)}</b><span>${x.st[0]}</span></div><div><b>${fmt(HE.n.w)}</b><span>${x.st[1]}</span></div><div><b>${fmt(HE.n.s)}</b><span>${x.st[2]}</span></div><div><b>${HE.n.m}</b><span>${x.st[3]}</span></div></div>`; }
+  <div class="stats"><div><b>${fmt(HE.n.b)}</b><span>${x.st[0]}</span></div><div><b>${fmt(HE.n.w)}</b><span>${x.st[1]}</span></div><div><b>${fmt(HE.n.s)}</b><span>${x.st[2]}</span></div><div><b data-learners>${learners()}</b><span>${x.st[3]}</span></div></div>`; }
+
+/* RYU 2026-11-28: "메뉴" out, "학습자" last = devices counted by the anonymous stats (same number as 도움말 > 통계), from the saved copy at once, then refreshed once per visit */
+let LRN = null, LRNF = false;
+const lfmt = n => Number(n).toLocaleString("en-US");
+function learners(){ if (LRN == null){ try { const d = JSON.parse(localStorage.getItem("hoteleng-statspage") || "null"); if (d && d.totals && d.totals.devices) LRN = +d.totals.devices; } catch (e) {} getLearners(); } return LRN ? lfmt(LRN) : "–"; }
+function getLearners(){ if (LRNF) return; LRNF = true; try { if (typeof STATS_URL === "undefined" || !STATS_URL || !navigator.onLine) return;
+  fetch(STATS_URL + "?stats=1", {cache: "no-store"}).then(r => r.json()).then(d => { if (!d || !d.totals) return; try { localStorage.setItem("hoteleng-statspage", JSON.stringify(d)); } catch (e) {}
+    if (d.totals.devices){ LRN = +d.totals.devices; document.querySelectorAll("#intro [data-learners]").forEach(b => { b.textContent = lfmt(LRN); }); } }).catch(() => {}); } catch (e) {} }
 function brand(){ return `<div class="brand"><img src="icon-192.png" alt=""><div><b>HotelEng</b><span>Hotel Service English · 호텔서비스 영어</span></div></div>`; }
 function free(long){ return `<span class="freepill"><i></i>${x.free}${long ? " · " + esc(x.hello) : ""}</span>`; }
 function step(n, k, note){ return `<div class="sh">${n ? `<span class="n">${n}</span>` : ""}<div><h2>${esc(x[k])}</h2>${note ? `<p>${esc(x[note])}</p>` : ""}</div></div>`; }
