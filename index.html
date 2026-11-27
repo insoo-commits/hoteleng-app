@@ -1673,12 +1673,14 @@ html.tab #app .band .tipbox{font-size:16.2px;line-height:1.35}
 @media (max-width:600px){#app #view .line .k{font-size:17.5px}#app #view .line .m{font-size:15px}#app #view .gl{font-size:14px!important}}
 /* 호텔경영학과 logo at the bottom (RYU 2026-11-27), redrawn as SVG so day and night get their own colours */
 .hmlogo-a{display:block;width:max-content;margin:18px auto 4px;text-decoration:none;border-radius:8px}
-.hmlogo{display:block;width:260px;height:auto;--hb:#1F4E79;--ho:#C55A11;--ht:#111}
+.hmlogo{display:block;width:175px;height:auto;--hb:#1F4E79;--ho:#C55A11;--ht:#111}
 .hmlogo .b{fill:var(--hb)}.hmlogo .o{fill:var(--ho)}.hmlogo .l{stroke:var(--hb)}.hmlogo .t{fill:var(--ht);font-family:"IBM Plex Sans KR","Noto Sans KR",system-ui,sans-serif}
 :root[data-theme="dark"] .hmlogo{--hb:#7FAEDB;--ho:#E58A45;--ht:#E8EEF5}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hmlogo{--hb:#7FAEDB;--ho:#E58A45;--ht:#E8EEF5}}
-#intro .foot .hmlogo-a{margin:14px 0 0}
-@media (max-width:600px){.hmlogo{width:220px}}
+#intro .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+#intro .foot .hmlogo-a{margin:0 0 2px auto;flex:none}
+@media (max-width:600px){.hmlogo{width:150px}}
+#intro .frow>.foot{flex:1}
 .stwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:6px}
 .sttiles{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px}
 .sttile{display:flex;flex-direction:column;gap:1px;padding:12px 14px;border-radius:14px;background:var(--raise);border:1px solid var(--line);position:relative;overflow:hidden}
@@ -2019,7 +2021,7 @@ html.introon,html.introon body{overflow:hidden}
   <div class="svbox" id="svbox"></div>
   <div class="prefs" id="prefs"></div>
   <a class="hmlogo-a" href="http://hotel.jj.ac.kr" target="_blank" rel="noopener"><svg class="hmlogo" viewBox="0 0 800 211" role="img" aria-label="전주대학교 호텔경영학과 Dept. of Hotel Management, Jeonju University"><g class="b"><rect x="0" y="32" width="44" height="161"/><rect x="291" y="32" width="43" height="161"/></g><rect class="o" x="128" y="32" width="42" height="161"/><g class="l" fill="none" stroke-width="3"><path d="M44 113.5H128"/><path d="M170 33L230 110L291 33"/></g><g class="t"><text x="364" y="93" font-size="70" font-weight="700" letter-spacing="5">호텔경영학과</text><text x="366" y="136" font-size="23">Dept. of Hotel Management</text><text x="366" y="163" font-size="23">Jeonju University</text><text x="366" y="190" font-size="23">http://hotel.jj.ac.kr</text></g></svg></a>
-  <p class="ver">HotelEng v1.70 · 2026.11.27. · Copyleft</p>
+  <p class="ver">HotelEng v1.71 · 2026.11.27. · Copyleft</p>
   <div class="stick" id="stick" hidden><div class="stin"><div class="strow"><b>HotelEng</b><span id="stickT"></span><button type="button" id="stickQ" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></div><nav class="groups" id="stickG" aria-label="대분류"></nav></div></div>
 </div>
-<script src="data.js?v=1.70"></script><script src="app.js?v=1.70"></script></body></html>
+<script src="data.js?v=1.71"></script><script src="app.js?v=1.71"></script></body></html>
