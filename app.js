@@ -1,4 +1,53 @@
-const HE_VER = "v1.74";
+const HE_VER = "v1.75";
+/* app volume (2026-11-27, RYU): one level for every sound the app makes, saved per app.
+   iPhone/iPad ignore audio.volume, so there the <audio> elements are routed through a Web Audio GainNode
+   (only once the level is set below 100%, so normal playback stays untouched). Elsewhere audio.volume is used.
+   Spoken TTS fallback gets utterance.volume. API: window.AVOL.get() 0..1, AVOL.set(v), AVOL.pct(). */
+(function(){
+  if (window.AVOL) return;
+  var KEY = "vol:" + (location.pathname.split("/")[1] || "app"), V = 1;
+  try { var s = localStorage.getItem(KEY); if (s !== null && !isNaN(+s)) V = Math.max(0, Math.min(1, +s)); } catch (e) {}
+  var FIXED = false;                       /* true where element volume is read-only (iOS) */
+  try { var t = document.createElement("audio"); t.volume = 0.5; FIXED = Math.abs(t.volume - 0.5) > 0.01; } catch (e) {}
+  var ctx = null, gain = null, routed = [], seen = [];
+  function ensureCtx(){
+    if (ctx) return ctx;
+    try { var C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+      ctx = new C(); gain = ctx.createGain(); gain.gain.value = V; gain.connect(ctx.destination); } catch (e) { ctx = null; }
+    return ctx;
+  }
+  function wake(){ try { if (ctx && ctx.state !== "running") ctx.resume(); } catch (e) {} }
+  function route(el){
+    if (!FIXED || routed.indexOf(el) >= 0 || V >= 0.999) return;
+    if (!ensureCtx()) return;
+    try { var src = ctx.createMediaElementSource(el); src.connect(gain); routed.push(el); } catch (e) {}
+    wake();
+  }
+  function apply(el){
+    if (!(el instanceof HTMLAudioElement)) return;
+    if (seen.indexOf(el) < 0) seen.push(el);
+    if (FIXED) route(el); else { try { el.volume = V; } catch (e) {} }
+  }
+  var play0 = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function(){ try { apply(this); if (routed.indexOf(this) >= 0) wake(); } catch (e) {} return play0.apply(this, arguments); };
+  try {
+    var ss = window.speechSynthesis, speak0 = ss && ss.speak;
+    if (speak0) ss.speak = function(u){ try { if (u && !u._av){ u._av = 1; u.volume = (u.volume == null ? 1 : u.volume) * V; } } catch (e) {} return speak0.apply(ss, arguments); };
+  } catch (e) {}
+  ["touchend", "click", "keydown"].forEach(function(n){ document.addEventListener(n, wake, true); });
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) wake(); });
+  window.AVOL = {
+    get: function(){ return V; },
+    pct: function(){ return Math.round(V * 100); },
+    set: function(v){
+      V = Math.max(0, Math.min(1, +v || 0));
+      try { localStorage.setItem(KEY, String(V)); } catch (e) {}
+      if (gain) try { gain.gain.value = V; } catch (e) {}
+      seen.forEach(apply);
+    }
+  };
+})();
+
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -1144,7 +1193,7 @@ const x = {
  lead: "기초 회화부터 프런트·객실·식음료·고객 응대 실무 영어, TOEIC, 영어면접까지. 원어민 음성과 한국어 뜻, 주요 단어 메모로 공부해요.",
  st: ["묶음", "단어", "문장", "메뉴"], free: "무료",
  s1: "재생 설정", s1n: "공부하면서 언제든 바꿀 수 있어요. 이 기기에 저장됩니다.",
- pass: "내 학습 설정", rep: "재생 횟수", spd: "속도", theme: "화면", th: ["자동", "☀ 낮", "☾ 밤"], fz: "글자 크기", listen: "들어 보기",
+ pass: "내 학습 설정", rep: "재생 횟수", spd: "속도", vol: "음량", theme: "화면", th: ["자동", "☀ 낮", "☾ 밤"], fz: "글자 크기", listen: "들어 보기",
  start: "시작하기", how: "사용법",
  s2: "공부 방법", s2n: "모든 묶음은 세 가지 보기로 공부해요.", h3: [["문장보기", "대화·예문 듣고 따라 하기", "listen"], ["주요단어", "단어 카드로 뜻 익히기", "cards"], ["복습퀴즈", "10문제로 확인", "quiz"]], h3k: ["S", "W", "E"],
  inside: "메뉴", learn: "호텔 영어", live: "시험·취업",
@@ -1211,6 +1260,7 @@ function pass(withCta){
   <div class="passbody">
    <div class="row"><div class="lab">${esc(x.rep)}<small>Repeat</small></div>${seg("rep", [1, 2, 3, 4, 5].map(n => [n, n + "회"]), rep())}</div>
    <div class="row full"><div class="rate"><div class="lab">${esc(x.spd)}<small>Speed</small></div><div class="rtrack"><input type="range" min="0.7" max="1.5" step="0.1" value="${rate()}" data-rate aria-label="${esc(x.spd)}"><div class="ticks" aria-hidden="true">${[0.7, 1, 1.5].map(v => `<span style="left:${((v - 0.7) / 0.8 * 100).toFixed(2)}%">${v.toFixed(1)}</span>`).join("")}</div></div><output>×${(+rate()).toFixed(1)}</output></div></div>
+   <div class="row full"><div class="rate vol"><div class="lab">${esc(x.vol)}<small>Volume</small></div><div class="rtrack"><input type="range" min="0" max="100" step="5" value="${volP()}" data-vol aria-label="${esc(x.vol)}"><div class="ticks" aria-hidden="true">${[0, 50, 100].map(v => `<span style="left:${v}%">${v}</span>`).join("")}</div></div><output>${volP()}%</output></div></div>
    <div class="row"><div class="lab">${esc(x.theme)}<small>Theme</small></div>${seg("theme", [["auto", x.th[0]], ["light", x.th[1]], ["dark", x.th[2]]], theme(), "txt")}</div>
    <div class="row"><div class="lab">${esc(x.fz)}<small>Text size</small></div>${seg("fz", [[0.9, "A−"], [1, "A"], [1.15, "A+"], [1.3, "A++"]], fz())}</div>
    <div class="sample"><button type="button" class="play" data-act="sample" aria-label="${esc(x.listen)}">${playing ? ICON.stop : ICON.play}</button><div><div class="s1 en">${esc(SAMPLE_EN)}</div><div class="s2">${esc(SAMPLE_KO)}</div></div><div class="s3">${rep()}회 · ×${(+rate()).toFixed(1)}<br>${esc(x.listen)}</div></div>
@@ -1352,6 +1402,9 @@ document.addEventListener("click", ev => {
   else if (a === "audio"){ const d = document.querySelector(".dla"); if (d) d.click(); }
   else if (a === "how"){ const el = box.querySelector(".steps"); if (el) el.scrollIntoView({behavior: "smooth", block: "center"}); }
 });
+/* volume (RYU 2026-11-27): vol.js (window.AVOL) sets one level for all app sound; iPhone/iPad included */
+function volP(){ try { return window.AVOL ? AVOL.pct() : 100; } catch (e) { return 100; } }
+document.addEventListener("input", ev => { if (box && ev.target.matches("#intro [data-vol]")){ const v = +ev.target.value; try { if (window.AVOL) AVOL.set(v / 100); } catch (e) {} const o = ev.target.closest(".rate").querySelector("output"); if (o) o.textContent = v + "%"; } });
 document.addEventListener("input", ev => { if (box && ev.target.matches("#intro [data-rate]")){ const v = (+ev.target.value).toFixed(1); HE.setRate(v); const o = ev.target.closest(".rate").querySelector("output"); if (o) o.textContent = "×" + (+v).toFixed(1); } });
 document.addEventListener("change", ev => { if (box && ev.target.matches("#intro [data-rate]")) render(); });
 /* while the intro is open, the app's keys stay off; Esc closes it */
