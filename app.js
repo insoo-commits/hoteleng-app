@@ -1,4 +1,4 @@
-const HE_VER = "v1.73";
+const HE_VER = "v1.74";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -761,7 +761,7 @@ function renderQuiz(b){
   if (!quiz || quiz.code !== b.code) quiz = makeQuiz(b);
   if (!quiz.qs.length) return [h("p", {class: "empty"}, "이 묶음에는 퀴즈로 낼 단어가 부족해요."), pnRow(b.code)];
   if (quiz.at >= quiz.qs.length){ const r = quiz.right / quiz.qs.length;   // department character on the result screen (RYU 2026-11-27)
-    return [h("div", {class: "qmascot"}, h("img", {src: "img/intro/mascot.png", alt: "", width: 163, height: 130}), h("div", {class: "bub"}, r >= 0.9 ? "Excellent! 호텔리어 준비 완료예요." : r >= 0.6 ? "Good job! 틀린 단어만 한 번 더 봐요." : "Nice try! 문장보기로 한 번 더 듣고 다시 풀어 봐요.")),
+    return [h("div", {class: "qmascot"}, h("img", {src: "img/intro/mascot.png", alt: "", width: 420, height: 337}), h("div", {class: "bub"}, r >= 0.9 ? "Excellent! 호텔리어 준비 완료예요." : r >= 0.6 ? "Good job! 틀린 단어만 한 번 더 봐요." : "Nice try! 문장보기로 한 번 더 듣고 다시 풀어 봐요.")),
     h("p", {class: "quizp"}, "점수"), h("div", {class: "score"}, quiz.right + " / " + quiz.qs.length),
     h("div", {class: "rowbtns", style: "justify-content:center"}, h("button", {class: "btn primary", type: "button", onclick: () => { stopPlay(); quiz = null; render(); }}, "다시 풀기")), pnRow(b.code)]; }
   const q = quiz.qs[quiz.at];
@@ -1219,7 +1219,7 @@ function pass(withCta){
   <div class="passfoot">${esc(x.s1n)}</div>
  </div>`; }
 /* department character (RYU 2026-11-27) with a short greeting */
-function mascot(){ return `<div class="mascot"><img src="img/intro/mascot.png" alt="호텔경영학과 캐릭터" width="163" height="130"><div class="bub"><b>Welcome to HotelEng!</b><span>호텔 현장 영어, 오늘 한 묶음부터 같이 시작해요.</span></div></div>`; }
+function mascot(){ return `<div class="mascot"><img src="img/intro/mascot.png" alt="호텔경영학과 캐릭터" width="420" height="337"><div class="bub"><b>Welcome to HotelEng!</b><span>호텔 현장 영어, 오늘 한 묶음부터 같이 시작해요.</span></div></div>`; }
 function how3(){ return `<div class="how3">${x.h3.map((h, i) => `<div class="hstep"><span class="k">${x.h3k[i]}</span><span class="hico">${ICON[h[2]]}</span><b>${esc(h[0])}</b><small>${esc(h[1])}</small></div>`).join("")}</div>`; }
 function menus(){ const tile = (m, i) => `<button type="button" class="mt${i >= LEARN ? " live" : ""}" data-area="${m[0]}"><span class="g"${m[1].length > 3 ? ' style="font-size:.6em"' : ""}>${esc(m[1])}</span><span class="t"><b>${esc(m[2])}</b><small>${esc(m[3])}</small></span></button>`;
   return `<div class="menus"><div class="mgl">${esc(x.learn)}</div>${MENUS.slice(0, LEARN).map(tile).join("")}<div class="mgl">${esc(x.live)}</div>${MENUS.slice(LEARN).map((m, i) => tile(m, i + LEARN)).join("")}</div>`; }
