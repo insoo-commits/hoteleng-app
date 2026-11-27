@@ -1,3 +1,4 @@
+const HE_VER = "v1.68";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -55,6 +56,198 @@ function makeAudioPack(opt){
     }
   };
 }
+
+/* ---------- HotelEng anonymous usage statistics + public stats page + short survey (RYU 2026-11-27, v1.68) ----------
+   Copied from PhasaKAO src/stats.js (itself from JeyCampus). No names, no e-mail: each device gets a random id. Events wait in
+   this device's storage and are sent in small batches to RYU's Google Sheet (Apps Script: /mnt/project-files/hotel-english-app/stats/Code.gs).
+   Not sent from localhost / file previews. STATS_URL empty = nothing is recorded. */
+const STATS_URL = /^https:/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !/claude|anthropic/.test(location.hostname) ? "https://script.google.com/macros/s/AKfycbzTg3Lhtz2Si2OdoknqapBId7SGZPUinPYeuJzB8_GqhltgocW1aOvkCftuX26Ih2mxBQ/exec" : "";   // RYU 2026-11-27: HotelEng sheet
+const ST = (() => {
+  const QK = "hoteleng-stats", IK = "hoteleng-id", MAX = 400;
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  let id = get(IK);
+  if (!id){ id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, "").slice(0, 16); put(IK, id); }
+  const ua = navigator.userAgent;
+  const os = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "iOS" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "Mac" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "other";
+  const dev = /iPad/.test(ua) || (os === "iOS" && !/iPhone|iPod/.test(ua)) || (os === "Android" && !/Mobile/.test(ua)) ? "tablet" : /iPhone|iPod|Mobile/.test(ua) ? "phone" : "computer";
+  const pwa = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const load = () => { try { const q = JSON.parse(get(QK) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } };
+  const stamp = () => { const d = new Date(), z = -d.getTimezoneOffset(), p = n => String(Math.abs(n)).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()) + (z < 0 ? "-" : "+") + p(z / 60 | 0) + ":" + p(z % 60); };
+  let busy = false;
+  function log(ev, code, a, b){
+    if (!STATS_URL) return;
+    const q = load(); q.push([stamp(), ev, code || "", a == null ? "" : a, b == null ? "" : b]);
+    put(QK, JSON.stringify(q.slice(-MAX)));
+  }
+  function send(beacon){
+    if (!STATS_URL || busy || !navigator.onLine) return;
+    const q = load(); if (!q.length) return;
+    const n = Math.min(q.length, 100), body = JSON.stringify({id, v: HE_VER, dev, os, pwa, lang: navigator.language || "", ev: q.slice(0, n)});
+    const done = () => { const r = load(); put(QK, JSON.stringify(r.slice(n))); };
+    if (beacon && navigator.sendBeacon){ if (navigator.sendBeacon(STATS_URL, new Blob([body], {type: "text/plain"}))) done(); return; }
+    busy = true;   // text/plain + no-cors: no preflight; the answer cannot be read, a network error rejects
+    fetch(STATS_URL, {method: "POST", mode: "no-cors", body, keepalive: body.length < 60000}).then(() => { done(); busy = false; if (load().length) setTimeout(send, 2000); }, () => { busy = false; });
+  }
+  if (STATS_URL){
+    log("open", "", dev, pwa ? "installed" : "browser");
+    setTimeout(send, 4000); setInterval(send, 60000);
+    addEventListener("online", () => send());
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
+  }
+  let last = "";
+  return {log, send, meta: () => ({id, v: HE_VER, dev, os, pwa, lang: navigator.language || ""}), lesson(code){ if (code && code !== last){ last = code; log("lesson", code); } }};
+})();
+
+/* ---------- public statistics page (도움말 > 사용 통계, RYU 2026-11-25, v1.3) ----------
+   Only totals that the sheet's Apps Script adds up (doGet ?stats=1): no device ids, no single person's scores.
+   STATS_PUBLIC false = build.js leaves the page out of the menu. Charts are drawn here as SVG (works offline,
+   follows the light / dark colors). The last numbers are kept on the device so the page also opens offline. */
+const STATS_PUBLIC = true;   // RYU 2026-11-25: show the stats page (도움말 > 사용 통계)
+const STP = (() => {
+  const CK = "hoteleng-statspage", NS = "http://www.w3.org/2000/svg";
+  const AC = {"1": "var(--k1)", "2": "var(--k2)", "3": "var(--k3)", "4": "var(--k4)", "5": "var(--k5)", "6": "var(--k6)", "7": "var(--k7)", "8": "var(--k8)", "9": "var(--muted)"};
+  const PAL = ["var(--k1)", "var(--k2)", "var(--k3)", "var(--k4)", "var(--k6)", "var(--k7)", "var(--k5)", "var(--k8)"];
+  const fmt = n => n == null || n === "" ? "–" : Number(n).toLocaleString("en-US");
+  function el(tag, at, ...k){ const e = document.createElement(tag);   // own small builder: app.js keeps its h() inside its own scope
+    for (const n in at || {}) e.setAttribute(n, at[n]);
+    for (const c of k.flat(9)) if (c != null && c !== false) e.append(c.nodeType ? c : String(c));
+    return e; }
+  function svg(w, hgt, kids){ const s = document.createElementNS(NS, "svg"); s.setAttribute("viewBox", "0 0 " + w + " " + hgt); s.setAttribute("class", "stsvg"); s.setAttribute("role", "img");
+    for (const k of kids.flat()) if (k) s.appendChild(k); return s; }
+  function sv(tag, at, text){ const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (text != null) e.textContent = text; return e; }
+  const card = (title, ko, body, wide) => el("section", {class: "stcard" + (wide ? " wide" : "")}, el("h3", null, title, " ", el("span", {class: "ko"}, ko)), body);
+  /* bars over time + a line (two series), labels every few columns */
+  function timeChart(rows, aName, bName){
+    const W = CW, H = Math.round(Math.min(260, Math.max(200, CW * .3))), L = 34, B = 26, T = 12, n = rows.length || 1, bw = (W - L - 8) / n;
+    const maxA = Math.max(1, ...rows.map(r => r[1])), maxB = Math.max(1, ...rows.map(r => r[2]));
+    const y = (v, m) => T + (H - T - B) * (1 - v / m), k = [];
+    for (let g = 0; g <= 4; g++){ const v = Math.round(maxA * g / 4), yy = y(v, maxA); k.push(sv("line", {x1: L, x2: W - 4, y1: yy, y2: yy, class: "stgrid"}), sv("text", {x: L - 6, y: yy + 4, class: "stax", "text-anchor": "end"}, fmt(v))); }
+    rows.forEach((r, i) => { const x = L + i * bw, hh = H - B - y(r[1], maxA);
+      k.push(sv("rect", {x: x + bw * .15, y: y(r[1], maxA), width: Math.max(1, bw * .7), height: Math.max(0, hh), rx: 2, style: "fill:var(--k1)"}, null));
+      k[k.length - 1].appendChild(sv("title", {}, r[0] + " · " + aName + " " + r[1] + " · " + bName + " " + r[2]));
+      const step = Math.ceil(n / Math.max(3, Math.floor(CW / 70))); if (i % step === 0 || i === n - 1) k.push(sv("text", {x: x + bw / 2, y: H - 8, class: "stax", "text-anchor": "middle"}, r[0].length > 7 ? r[0].slice(5) : r[0])); });
+    const pts = rows.map((r, i) => (L + i * bw + bw / 2) + "," + y(r[2], maxB)).join(" ");
+    if (rows.length > 1) k.push(sv("polyline", {points: pts, class: "stline"}));
+    rows.forEach((r, i) => k.push(sv("circle", {cx: L + i * bw + bw / 2, cy: y(r[2], maxB), r: rows.length > 40 ? 1.5 : 3, class: "stdot"})));
+    return el("div", null, svg(W, H, k), el("div", {class: "stleg"}, el("span", {class: "sw", style: "background:var(--k1)"}), aName, el("span", {class: "sw ln"}), bName + " (오른쪽 눈금, 최대 " + fmt(maxB) + ")"));
+  }
+  /* horizontal bars: [label, value, color?, sub-label?] */
+  function hbars(rows, unit){
+    const max = Math.max(1, ...rows.map(r => r[1]));
+    return el("div", {class: "sthb"}, rows.map((r, i) => el("div", {class: "sthr"},
+      el("div", {class: "sthl"}, el("span", {class: "ko"}, r[0]), r[3] ? el("small", null, r[3]) : null),
+      el("div", {class: "stht"}, el("i", {style: "width:" + (100 * r[1] / max).toFixed(1) + "%;background:" + (r[2] || PAL[i % PAL.length])})),
+      el("b", null, fmt(r[1]) + (unit || "")))));
+  }
+  function donut(rows){
+    const tot = rows.reduce((s, r) => s + r[1], 0) || 1, R = 70, C = 2 * Math.PI * R, k = []; let off = 0;
+    rows.forEach((r, i) => { const len = C * r[1] / tot; k.push(sv("circle", {cx: 100, cy: 100, r: R, class: "stdn", style: "stroke:" + PAL[i % PAL.length], "stroke-dasharray": len + " " + (C - len), "stroke-dashoffset": -off, transform: "rotate(-90 100 100)"})); off += len; });
+    k.push(sv("text", {x: 100, y: 98, class: "stdc", "text-anchor": "middle"}, fmt(tot)), sv("text", {x: 100, y: 118, class: "stax", "text-anchor": "middle"}, "학습자"));
+    return el("div", {class: "stdnw"}, svg(200, 200, k), el("ul", {class: "stdl"}, rows.map((r, i) => el("li", null, el("span", {class: "sw", style: "background:" + PAL[i % PAL.length]}), r[0] + " ", el("b", null, Math.round(100 * r[1] / tot) + "%"), " (" + fmt(r[1]) + ")"))));
+  }
+  function vbars(rows, color){
+    const W = CW, H = 170, B = 24, T = 16, n = rows.length, bw = (W - 8) / n, max = Math.max(1, ...rows.map(r => r[1])), k = [];
+    rows.forEach((r, i) => { const hh = (H - B - T) * r[1] / max, x = 4 + i * bw;
+      k.push(sv("rect", {x: x + bw * .12, y: H - B - hh, width: bw * .76, height: hh, rx: 3, style: "fill:" + (color || "var(--k2)")}));
+      if (r[1] && n <= 12) k.push(sv("text", {x: x + bw / 2, y: H - B - hh - 4, class: "stax", "text-anchor": "middle"}, fmt(r[1])));
+      if (n <= 12 || i % 3 === 0) k.push(sv("text", {x: x + bw / 2, y: H - 7, class: "stax", "text-anchor": "middle"}, r[0])); });
+    return svg(W, H, k);
+  }
+  let CW = 640;   // chart width in px = the card width, so text keeps its size on a computer
+  function draw(box, d){
+    CW = Math.max(300, Math.min(1100, (box.clientWidth || 640) - 30));
+    const t = d.totals || {}, titles = new Map(Object.keys(B).map(c => [c, [B[c].t, B[c].en]])), areaName = new Map(G.map((g, i) => [String(i + 1), g[0]]));
+    const tile = (v, ko, sub) => el("div", {class: "sttile"}, el("b", null, v), el("span", null, ko), sub ? el("small", null, sub) : null);
+    const kids = [
+      el("div", {class: "sttiles"},
+        tile(fmt(t.devices), "학습자", "기기 수"), tile(fmt(t.returning), "다시 온 학습자", "2일 이상"),
+        tile(fmt(t.lessons), "묶음 열람"), tile(t.perLearner == null ? "–" : t.perLearner, "1인당 묶음"),
+        tile(fmt(t.quizzes), "퀴즈 완료"), tile(t.quizAvg == null ? "–" : t.quizAvg + "%", "퀴즈 평균"),
+        tile(fmt(t.toeic), "TOEIC 문제 세트", t.toeicAvg == null ? null : "평균 " + t.toeicAvg + "%"), tile(fmt(t.mocks), "모의 면접 질문"),
+        tile(fmt(t.plays), "음성 재생")),
+      d.daily && d.daily.length ? card("날마다", "학습자 · 묶음 열람", timeChart(d.daily, "학습자", "묶음 열람"), true) : null,
+      d.monthly && d.monthly.length > 1 ? card("달마다", "학습자 · 묶음 열람", timeChart(d.monthly, "학습자", "묶음 열람"), true) : null,
+      d.top && d.top.length ? card("많이 본 묶음", "Top 10", hbars(d.top.slice(0, 10).map(r => { const ti = titles.get(r[0]); return [ti ? ti[0] : r[0], r[1], AC[r[0].split("-")[0]], (ti && ti[1] ? ti[1] + " · " : "") + r[0]]; })), true) : null,
+      d.areas && d.areas.length ? card("메뉴별 열람", "", hbars(d.areas.map(r => [areaName.get(String(r[0])) || r[0], r[1], AC[r[0]]]))) : null,
+      d.devices && d.devices.length ? card("기기", "", donut(d.devices.map(r => [{phone: "휴대폰", tablet: "태블릿", computer: "컴퓨터"}[r[0]] || r[0], r[1]]))) : null,
+      d.os && d.os.length ? card("운영체제", "", hbars(d.os)) : null,
+      d.survey && d.survey.n ? card("만족도 설문", "", el("div", null, el("div", {class: "sttiles"}, tile(fmt(d.survey.n), "응답"), tile(d.survey.avg == null ? "–" : d.survey.avg + " ★", "평균 별점"), tile(d.survey.recPct == null ? "–" : d.survey.recPct + "%", "추천 의향")), vbars(["★1", "★2", "★3", "★4", "★5"].map((l, i) => [l, d.survey.dist[i] || 0]), "var(--k5)")), true) : null,
+      d.quizHist && d.quizHist.some(Boolean) ? card("퀴즈 점수 분포", "", vbars(["0–19%", "20–39%", "40–59%", "60–79%", "80–100%"].map((l, i) => [l, d.quizHist[i] || 0]), "var(--good)"), true) : null,
+      d.hours && d.hours.some(Boolean) ? card("공부하는 시간", "한국 시간", vbars(d.hours.map((v, i) => [String(i), v]), "var(--k6)"), true) : null,
+      el("p", {class: "stnote"}, "업데이트 " + (d.updated || "–") + (d.first ? " · " + d.first + "부터" : "") + ". 이름 없이 모은 전체 합계입니다. 한 사람의 점수는 보이지 않아요.")];
+    box.replaceChildren(el("div", {class: "stwrap"}, kids));
+  }
+  function page(box){ requestAnimationFrame(() => page2(box)); }   // after the page is on screen, so the cards have their width
+  function page2(box){
+    let old = null; try { old = JSON.parse(localStorage.getItem(CK) || "null"); } catch (e) {}
+    if (window.__STATS_DEMO){ draw(box, window.__STATS_DEMO); return; }   // screenshots and tests only
+    if (old) draw(box, old); else box.replaceChildren(el("p", {class: "empty"}, STATS_URL ? "통계를 불러오는 중…" : "통계는 앱 주소(hoteleng.pages.dev)에서 볼 수 있어요."));
+    if (!STATS_URL) return;
+    fetch(STATS_URL + "?stats=1", {cache: "no-store"}).then(r => r.json()).then(d => { if (!d || !d.totals) throw 0; try { localStorage.setItem(CK, JSON.stringify(d)); } catch (e) {} if (box.isConnected) draw(box, d); })
+      .catch(() => { if (!old && box.isConnected) box.replaceChildren(el("p", {class: "empty"}, "통계를 불러오지 못했어요. 인터넷에 연결된 뒤 다시 열어 주세요.")); });
+  }
+  return {page};
+})();
+
+/* ---------- short satisfaction survey (RYU 2026-11-25, v1.11) ----------
+   Four questions: stars, most helpful menu, recommend to a friend, a free comment. Sent once per device to the same
+   Apps Script (sheet "survey"); the public stats page shows only the totals (number of answers, average stars).
+   Offered under the 내 학습 card after 5 lessons on 2 different days; "Later" asks again in 3 days; always open in 도움말. */
+const SV = (() => {
+  const DK = "hoteleng-survey", PK = "hoteleng-svq";
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  function el(tag, at, ...k){ const e = document.createElement(tag);
+    for (const a in at || {}) if (at[a] != null){ if (a.startsWith("on")) e.addEventListener(a.slice(2), at[a]); else e.setAttribute(a, at[a]); }
+    for (const x of k.flat(9)) if (x != null && x !== false) e.append(x.nodeType ? x : String(x)); return e; }
+  const state = () => { try { return JSON.parse(get(DK) || "{}"); } catch (e) { return {}; } };
+  const today = () => new Date().toISOString().slice(0, 10);
+  function flush(){
+    const p = get(PK); if (!p || !STATS_URL || !navigator.onLine) return;
+    fetch(STATS_URL, {method: "POST", mode: "no-cors", body: p, keepalive: true}).then(() => put(PK, ""), () => {});
+  }
+  function form(box, inPage){
+    const st = state();
+    if (st.done){ box.replaceChildren(el("div", {class: "svcard svdone"},
+      el("p", null, el("b", null, "의견 고마워요! "), "앱을 고치는 데 잘 쓸게요."))); return; }
+    const a = {stars: 0, menu: "", rec: "", text: ""};
+    const menus = G.slice(0, -1).map((g, i) => [String(i + 1), g[0]]);
+    const stars = el("div", {class: "svstars", role: "radiogroup", "aria-label": "별점"});
+    const more = el("div", {class: "svmore", hidden: ""});
+    const chip = (grp, key, val, label) => el("button", {type: "button", class: "svchip", "data-v": val, onclick: ev => { a[key] = val;
+      for (const b of grp.querySelectorAll(".svchip")) b.classList.toggle("on", b.dataset.v === val); }}, label);
+    for (let i = 1; i <= 5; i++) stars.append(el("button", {type: "button", class: "svstar", "aria-label": i + "점", onclick: () => { a.stars = i;
+      stars.querySelectorAll(".svstar").forEach((b, k) => b.classList.toggle("on", k < i)); more.hidden = false; }}, "★"));
+    const mg = el("div", {class: "svchips"}); menus.forEach(m => mg.append(chip(mg, "menu", m[0], m[1])));
+    const rg = el("div", {class: "svchips"}); [["yes", "네"], ["maybe", "글쎄요"], ["no", "아니요"]].forEach(r => rg.append(chip(rg, "rec", r[0], r[1])));
+    const ta = el("textarea", {class: "svtext", maxlength: "300", rows: "3", placeholder: "바라는 점이나 고칠 점 (선택)"});
+    const send = () => {
+      if (!a.stars) return;
+      a.text = ta.value.trim().slice(0, 300);
+      const m = ST.meta(); put(PK, JSON.stringify(Object.assign(m, {survey: a})));
+      put(DK, JSON.stringify({done: today()})); flush(); form(box, inPage); if (!inPage) setTimeout(() => box.replaceChildren(), 4000);
+    };
+    more.append(
+      el("p", {class: "svq"}, "가장 도움이 된 메뉴는?"), mg,
+      el("p", {class: "svq"}, "친구에게 추천할래요?"), rg,
+      ta, el("div", {class: "svbtns"}, el("button", {type: "button", class: "btn primary", onclick: send}, "보내기")));
+    box.replaceChildren(el("div", {class: "svcard"},
+      inPage ? null : el("button", {type: "button", class: "svx", "aria-label": "나중에", title: "나중에", onclick: () => {
+        const d = new Date(); d.setDate(d.getDate() + 3); put(DK, JSON.stringify({later: d.toISOString().slice(0, 10)})); box.replaceChildren(); }}, "×"),
+      el("div", {class: "svhead"},
+        el("p", {class: "svq"}, el("b", null, "HotelEng 어때요? "), "별을 눌러 주세요.")), stars, more));
+  }
+  /* offer it under the 내 학습 card: seen = lessons opened, days = study days */
+  function offer(box, seen, days){
+    if (!box || !STATS_URL) return; const st = state();
+    if (st.done || (st.later && st.later > today()) || seen < 5 || days < 2){ if (!box.querySelector(".svmore:not([hidden])")) box.replaceChildren(); return; }
+    if (!box.firstChild) form(box, false);
+  }
+  if (STATS_URL){ setTimeout(flush, 5000); addEventListener("online", flush); }
+  return {form, offer};
+})();
 
 /* 호텔서비스 영어 — app logic. DATA (bundles) and AUD (mp3 clips) are injected by build.py. */
 const $ = id => document.getElementById(id), $$ = s => [...document.querySelectorAll(s)];
@@ -302,6 +495,7 @@ const bundleEls = () => $$("#view [data-say]").filter(x => !x.closest(".tq"));
 function playBundle(chain){
   const cr = $("ctlrep");
   if (query || isInfo(S.code) || isMock(S.code)) return;
+  ST.log("play", S.code, chain ? "all" : "lesson");   // usage statistics (v1.68)
   if (S.mode === "cards"){ playCardsAll(chain); if (cr) cr.dataset.on = chain ? "chain" : "bundle"; return; }
   if (S.mode !== "learn") return;
   const els = bundleEls();
@@ -450,7 +644,9 @@ function tqBox(q, n){
     h("div", {class: "topts"}, q[2].map((c, j) => h("button", {type: "button", class: "topt", "data-ok": j === q[3] ? "1" : "0",
       onclick: ev => { box.querySelectorAll(".topt").forEach(o => { o.disabled = true; if (o.dataset.ok === "1") o.classList.add("right"); });
         const ok = j === q[3]; if (!ok) ev.currentTarget.classList.add("wrong");
-        why.replaceChildren(h("b", null, ok ? "정답입니다. " : "정답: (" + L[q[3]] + ") "), q[4]); why.hidden = false; }},
+        why.replaceChildren(h("b", null, ok ? "정답입니다. " : "정답: (" + L[q[3]] + ") "), q[4]); why.hidden = false; box.dataset.ok = ok ? "1" : "0";
+        /* usage statistics (v1.68): a TOEIC set counts once every question on the page has an answer */
+        const all = $$("#view .tq"); if (all.length && all.every(x => x.dataset.ok)) ST.log("toeic", S.code, all.filter(x => x.dataset.ok === "1").length, all.length); }},
       h("span", {class: "ol"}, "(" + L[j] + ")"), " ", h("span", {class: "ot"}, c)))), why);
   return box;
 }
@@ -575,7 +771,7 @@ function renderQuiz(b){
     h("div", {class: "choices"}, q.opts.map(o => h("button", {class: "choice" + (q.key === "en" ? " qen" : "") + (q.picked != null ? (o === q.a ? " right" : o === q.picked ? " wrong" : "") : ""), type: "button", disabled: q.picked != null,
       onclick: () => { q.picked = o; if (o === q.a) quiz.right++; render(); stopPlay(); const tok = ++P.tok; say(tok, q.kind === "blank" ? q.blank.full : q.it.en, "f"); }}, o))),
     q.picked != null ? h("div", {class: "rowbtns", style: "justify-content:flex-end"}, h("button", {class: "btn primary", type: "button", onclick: () => {
-      stopPlay(); quiz.at++; render(); const nq = quiz.qs[quiz.at], el = document.querySelector(".quizq.listen"); if (nq && nq.kind === "listen" && el) playEls([el]); }}, "다음 →")) : null];
+      stopPlay(); quiz.at++; if (quiz.at === quiz.qs.length) ST.log("quiz", quiz.code, quiz.right, quiz.qs.length); render(); const nq = quiz.qs[quiz.at], el = document.querySelector(".quizq.listen"); if (nq && nq.kind === "listen" && el) playEls([el]); }}, "다음 →")) : null];
 }
 
 /* ---------- search ---------- */
@@ -624,9 +820,9 @@ function renderMock(b){
       part("a", "모범 답변 보기", [h("div", {class: "mkans"}, q[2].map(a => h("div", {class: "mkline"}, h("div", {class: "k"}, a[0]), h("div", {class: "m"}, a[1])))),
         h("button", {class: "btn mkplay", type: "button", onclick: ev => sayList(ev, q[2].map(a => [a[0], va(a[0])]))}, ico("spk"), "답변 듣기")]),
       q[3] ? part("t", "질문 의도·답변 방향 보기", h("div", {class: "tip"}, h("p", {class: "note-ko"}, h("b", null, "질문 의도 "), q[3]), h("p", {class: "note-ko"}, h("b", null, "답변 방향 "), q[4]))) : null,
-      h("div", {class: "mkfoot"}, mkPic(), h("button", {class: "btn mknext", type: "button", onclick: () => { stopPlay(); next(); draw(); }}, "다음 문제 →")));
+      h("div", {class: "mkfoot"}, mkPic(), h("button", {class: "btn mknext", type: "button", onclick: () => { stopPlay(); next(); draw(); ST.log("mock", "8-07-01"); }}, "다음 문제 →")));
   };
-  const start = () => { stopPlay(); st.order = []; st.i = -1; st.on = true; next(); draw(); box.scrollIntoView({block: "nearest"}); };
+  const start = () => { stopPlay(); st.order = []; st.i = -1; st.on = true; next(); draw(); ST.log("mock", "8-07-01"); box.scrollIntoView({block: "nearest"}); };
   const radios = h("div", {class: "mkareas", role: "radiogroup"}, areas.map((a, i) => {
     const r = h("input", {type: "radio", name: "mkarea", value: String(i), checked: i === st.area ? true : null});
     r.addEventListener("change", () => { if (r.checked){ st.area = i; st.on = false; stopPlay(); draw(); } });
@@ -641,7 +837,9 @@ function renderMock(b){
   return [pick, box];   // no 이전·다음 묶음 buttons here (RYU 2026-11-24)
 }
 function renderInfo(b){
-  const art = h("article", {class: "info"}); art.innerHTML = b.info; return [art, pnRow(b.code)];   // 이전·다음 묶음 in 도움말 too (RYU 2026-11-24)
+  const art = h("article", {class: "info"}); art.innerHTML = b.info; helpDeco(art, b);
+  { const sp = art.querySelector("#statsPage"); if (sp) STP.page(sp); const sv = art.querySelector("#surveyPage"); if (sv) SV.form(sv, true); }   // 통계·의견 pages (src/stats.js, v1.68)
+  return [art, pnRow(b.code)];   // 이전·다음 묶음 in 도움말 too (RYU 2026-11-24)
 }
 
 /* ---------- render and routing ---------- */
@@ -666,7 +864,7 @@ function route(){
   if (at.has(c)) S.code = c; else if (c === "help") S.code = HELP0;
   AP.warm(S.code);   // get this bundle's clips ready
   S.lastA[gOf(S.code)] = S.code; S.lastS[sOf(S.code)] = S.code;
-  stopPlay(); quiz = null; save();
+  stopPlay(); quiz = null; track(S.code); save(); ST.lesson(S.code);   // usage statistics (src/stats.js, v1.68)
   if (query || $("q").value){ query = ""; $("q").value = ""; }   // moving to a bundle ends the search
   drawGroups(); drawSubs(); drawPicker(); render();
   window.scrollTo({top: 0});
@@ -705,11 +903,11 @@ const qSync = () => { clearTimeout(qt); qt = setTimeout(() => { const v = $("q")
 for (const ev of ["input", "search", "change", "compositionend", "keyup"]) $("q").addEventListener(ev, qSync);
 /* ---------- keyboard (same keys as lao-app / kor-app, RYU 2026-11-23) ----------
    Space pause / resume (idle: 묶음 재생) · C 연속 재생 · G 묶음 재생 · Esc stop · ← → previous / next line
-   , . previous / next bundle · Enter this line without end (∞) · 1-5 횟수 · - = 속도 · Q W E views · ? list of keys.
+   , . previous / next bundle · Enter this line without end (∞) · 1-5 횟수 · - = 속도 · S W E views (all apps, RYU 2026-11-27) · ? list of keys.
    Keys go by e.code too, so they work with the Korean keyboard on. */
 const KEYS = [["Space", "일시정지 · 재개 (멈춰 있으면 묶음 듣기)"], ["C", "연속 듣기 (이 묶음부터 다음 묶음으로)"], ["G", "묶음 전체 듣기"], ["Esc", "정지"],
   ["← →", "이전 · 다음 문장"], ["< >  (, .)", "이전 · 다음 묶음"], ["Enter", "지금 문장 무한 반복 · 끄기"], ["1 ~ 5", "반복 횟수"], ["-  =  (또는 - +)", "느리게 · 빠르게 (×0.7 ~ ×1.5)"],
-  ["Q W E", "문장보기 · 주요단어 · 복습퀴즈"], ["?", "단축키 목록 열기 · 닫기"]];
+  ["S W E", "문장보기 · 주요단어 · 복습퀴즈"], ["?", "단축키 목록 열기 · 닫기"]];
 function keyHelp(){
   const box = h("div", {id: "kbhelp", onclick: () => box.remove()},
     h("div", {class: "kbcard"}, h("b", null, "키보드 단축키"),
@@ -732,8 +930,8 @@ document.addEventListener("keydown", e => {
   if (is("Comma", ",", "<") || is("Period", ".", ">")){
     e.preventDefault(); const i = at.get(S.code), d = is("Period", ".", ">") ? 1 : -1;
     go(ORDER[(i + d + ORDER.length) % ORDER.length]); return; }
-  if (is("KeyQ", "q", "ㅂ") || is("KeyW", "w", "ㅈ") || is("KeyE", "e", "ㄷ")){
-    e.preventDefault(); $(is("KeyQ", "q", "ㅂ") ? "m-learn" : is("KeyW", "w", "ㅈ") ? "m-cards" : "m-quiz").click(); return; }
+  if (is("KeyS", "s", "ㄴ") || is("KeyW", "w", "ㅈ") || is("KeyE", "e", "ㄷ")){
+    e.preventDefault(); $(is("KeyS", "s", "ㄴ") ? "m-learn" : is("KeyW", "w", "ㅈ") ? "m-cards" : "m-quiz").click(); return; }
   if (is("KeyC", "c", "ㅊ")){ e.preventDefault(); ctlToggle(true); return; }
   if (is("KeyG", "g", "ㅎ")){ e.preventDefault(); ctlToggle(false); return; }
   if (/^Digit[1-5]$/.test(c) || /^[1-5]$/.test(e.key)){ e.preventDefault(); setSel("repSel", +(e.key.match(/[1-5]/) || c.slice(-1))[0] - 1); return; }
@@ -838,4 +1036,321 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitB
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(upd);
     upd();
   }
+})();
+
+/* ======================= v1.68 HotelEng (RYU 2026-11-27) =======================
+   App renamed HotelEng; like PhasaKAO / PhasaLAO: intro page (src/intro.js), theme + text size + HOME row at the bottom,
+   title tap = intro, help pages in numbered colour boxes, anonymous stats + survey (src/stats.js). */
+/* lessons seen and study days on this device (for the survey offer and the intro) */
+function track(c){ if (!c || isInfo(c)) return; S.seen = S.seen || {}; S.seen[c] = 1;
+  const d = new Date(), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  S.days = S.days || []; if (S.days[S.days.length - 1] !== t){ S.days.push(t); S.days = S.days.slice(-60); }
+  const sb = $("svbox"); if (sb) SV.offer(sb, Object.keys(S.seen).length, S.days.length); }
+
+/* help pages like PhasaKAO: page title, a lead box, each <h3> part in a numbered colour box, pictures in their own "화면 보기" box */
+function helpDeco(art, b){
+  if (gOf(b.code) !== HELP) return;
+  art.classList.add("hpinfo");
+  const head = h("div", {class: "hphead"}, h("h2", null, b.t), b.en ? h("div", {class: "sub2"}, b.en) : null);
+  const kids = [...art.childNodes].filter(n => n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim()));
+  const lead = [], boxes = [], shots = []; let cur = null;
+  for (const n of kids){
+    if (n.nodeType === 1 && (n.matches("figure.hshot,.hshots"))){ shots.push(n); continue; }
+    if (n.nodeType === 1 && n.tagName === "H3"){ cur = {h: n, items: []}; boxes.push(cur); continue; }
+    if (n.nodeType === 1 && n.matches("#statsPage,#surveyPage")){ cur = null; boxes.push({raw: n}); continue; }
+    if (cur) cur.items.push(n); else lead.push(n);
+  }
+  let k = 0; const mk = (title, items, extra) => { const ib = h("div", {class: "ib hc" + (k++ % 4) + (extra || "")}, h("h3", null, title), h("div", {class: "ibb"}, items)); return ib; };
+  const out = [head];
+  if (lead.length) out.push(h("div", {class: "ib ib-lead"}, h("div", {class: "ibb"}, lead)));
+  for (const x of boxes) out.push(x.raw ? x.raw : mk([...x.h.childNodes], x.items));
+  if (shots.length) out.push(mk(["화면 보기"], shots, " ib-shots"));
+  art.replaceChildren(...out);
+}
+
+/* dark screen: most dark rules only answer the device setting (@media); copy them once for the 밤 button ([data-theme="dark"]), as PhasaLAO does */
+(function(){ const out = [];
+  for (const sh of document.styleSheets){ let rs; try { rs = sh.cssRules; } catch (e) { continue; }
+    for (const r of rs) if (r.media && /prefers-color-scheme:\s*dark/.test(r.media.mediaText)) for (const x of r.cssRules){ if (!x.selectorText) continue;
+      const sel = x.selectorText.split(",").map(t => t.trim()).filter(t => t.includes(':root:not([data-theme="light"])')).map(t => t.replace(/:root:not\(\[data-theme="light"\]\)/g, ':root[data-theme="dark"]'));
+      if (sel.length) out.push(sel.join(",") + "{" + x.style.cssText + "}"); } }
+  if (out.length) document.head.appendChild(h("style", {id: "darkcopy"}, out.join("\n"))); })();
+
+/* bottom row: 글자 크기 · 낮/밤 · HOME (RYU 2026-11-27) */
+function applyPrefs(){
+  const r = document.documentElement;
+  if (S.theme === "light" || S.theme === "dark") r.setAttribute("data-theme", S.theme); else r.removeAttribute("data-theme");
+  r.style.setProperty("--fz", String(S.fz || 1));
+  const box = $("prefs"); if (!box) return;
+  const seg = (label, opts, cur, set) => h("div", {class: "pseg", role: "group", "aria-label": label, title: label},
+    h("div", {class: "pbtns"}, opts.map(([v, t]) => h("button", {type: "button", class: "pb" + (String(cur) === String(v) ? " on" : ""), "aria-pressed": String(cur) === String(v) ? "true" : "false",
+      onclick: () => { set(v); save(); applyPrefs(); if (S.mode === "cards") fitWords(); fitBsel(); }}, t))));
+  box.replaceChildren(
+    seg("글자 크기", [[0.9, "A−"], [1, "A"], [1.15, "A+"], [1.3, "A++"]], S.fz || 1, v => S.fz = v),
+    seg("화면", [["auto", "자동"], ["light", "☀ 낮"], ["dark", "☾ 밤"]], S.theme || "auto", v => S.theme = v),
+    h("button", {type: "button", class: "pb phome", title: "HotelEng 첫 화면", onclick: () => goHome()}, h("span", {class: "hico", "aria-hidden": "true"}), "HOME"));
+  box.querySelector(".hico").innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>';
+}
+function goHome(){ stopPlay(); if (window.HE && window.HE.intro){ window.HE.intro(); return; } go(ORDER[0]); setTimeout(() => scrollTo(0, 0), 60); }
+applyPrefs();
+{ const sb = $("svbox"); if (sb && S.seen) SV.offer(sb, Object.keys(S.seen).length, (S.days || []).length); }
+
+/* title (top left, and HotelEng in the sticky bar) opens the intro */
+for (const e of [document.querySelector(".top .brand"), document.querySelector("#stick .strow > b")]) if (e){
+  e.style.cursor = "pointer"; e.setAttribute("role", "link"); e.setAttribute("tabindex", "0"); e.title = "HotelEng 첫 화면";
+  e.addEventListener("click", goHome); e.addEventListener("keydown", ev => { if (ev.key === "Enter") goHome(); }); }
+
+/* hooks for src/intro.js */
+window.HE = {S, save, applyPrefs, speak: (t, v) => speakOne(t, v || "f"), quiet, setRep: v => { S.rep = +v; $("repSel").value = String(S.rep); save(); }, setRate: v => { setRate(v); save(); },
+  go: code => go(code), groups: G.map((g, i) => [i + 1, g[0], g[1][0][1][0]]), ver: HE_VER,
+  n: (() => { let w = 0, s = 0; const L = ORDER.filter(c => !isInfo(c)); for (const c of L){ const b = B[c]; w += (b.w || []).length; s += (b.w || []).reduce((t, x) => t + x[4].length * 2, 0) + (b.d || []).length + (b.dr || []).reduce((t, x) => t + x[2].length, 0); } return {b: L.length, w, s, m: G.length - 1}; })()};
+
+/* HotelEng intro page (v1.68, RYU 2026-11-27): PhasaKAO's intro (kor-app src/intro.js, approved design) with Korean text,
+   no character and no meaning-voice switch. Shown when the app opens without a lesson link, once per visit; a refresh keeps
+   whichever screen was showing. The settings card writes straight into the app's saved state (window.HE, from src/app.js).
+   Pictures: RYU sends them later. Until then each slot shows a drawn placeholder with its number (PICS below = file per slot). */
+(function(){
+"use strict";
+const HE = window.HE; if (!HE) return;
+const S = HE.S, URL_APP = "hoteleng.pages.dev";
+/* picture slots: file in img/intro/ once RYU has sent it (null = placeholder) */
+const PICS = {hero: null, heroPad: null, heroPc: null, inst: null, s1: null, s2: null, s3: null, g1: null, g2: null, g3: null};
+const SLOT = {hero: "① 휴대폰 첫 화면 배경", heroPad: "② 태블릿 첫 화면 배경", heroPc: "③ PC 첫 화면 배경", inst: "④ 설치 안내 배경",
+  s1: "⑤ PC 작은 사진 1", s2: "⑥ PC 작은 사진 2", s3: "⑦ PC 작은 사진 3", g1: "⑧ PC 메뉴 아래 사진 1", g2: "⑨ PC 메뉴 아래 사진 2", g3: "⑩ PC 메뉴 아래 사진 3"};
+function pic(k){
+  if (PICS[k]) return "img/intro/" + PICS[k];
+  const big = /^(hero|heroPad|heroPc|inst)$/.test(k), W = big ? 1200 : 480, H = big ? 800 : 300;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1E5B88"/><stop offset="1" stop-color="#0C2440"/></linearGradient></defs>`
+    + `<rect width="${W}" height="${H}" fill="url(#g)"/><g fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="${big ? 3 : 2}" transform="translate(${W * .58} ${H * .2}) scale(${H / 160})"><path d="M0 120h150M30 120V20h60v100M30 20l30-12 30 12M60 8V0M10 120V50h20M90 50h20v70"/>`
+    + `<g fill="#fff" fill-opacity=".18">${[0, 1, 2, 3, 4].map(r => [0, 1, 2].map(c => `<rect x="${38 + c * 16}" y="${30 + r * 17}" width="8" height="10"/>`).join("")).join("")}</g></g>`
+    + `<text x="${W * .05}" y="${H * (big ? .07 : .9)}" font-family="sans-serif" font-size="${big ? 34 : 22}" fill="#fff" fill-opacity=".75">사진 자리 ${SLOT[k]}</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+/* the app's menus: [group no, tile text, name, short note] */
+const TILE = {"기초회화": ["Hi", "인사·숫자·기본 문장"], "호텔기본": ["Hotel", "부서·직무·호텔 용어"], "프런트": ["Desk", "예약·체크인·체크아웃"], "객실·시설": ["Room", "하우스키핑·시설 안내"],
+  "식음료": ["F&B", "레스토랑·바·룸서비스"], "고객응대·실무": ["Care", "불만·응급·실무"], "TOEIC": ["TOEIC", "LC·RC 1,000문제"], "영어면접": ["Job", "자기소개·모의 면접"], "도움말": ["?", "사용법·통계·의견"]};
+const MENUS = HE.groups.map(g => [g[0], (TILE[g[1]] || [g[1].slice(0, 2)])[0], g[1], (TILE[g[1]] || ["", ""])[1], g[2]]);
+const LEARN = 6;
+const x = {
+ hello: "Welcome! 어서 오세요!", sub: "호텔 현장에서 바로 쓰는 영어, 주제별로 쉽게",
+ lead: "기초 회화부터 프런트·객실·식음료·고객 응대 실무 영어, TOEIC, 영어면접까지. 원어민 음성과 한국어 뜻, 주요 단어 메모로 공부해요.",
+ st: ["묶음", "단어", "문장", "메뉴"], free: "무료",
+ s1: "재생 설정", s1n: "공부하면서 언제든 바꿀 수 있어요. 이 기기에 저장됩니다.",
+ pass: "내 학습 설정", rep: "재생 횟수", spd: "속도", theme: "화면", th: ["자동", "☀ 낮", "☾ 밤"], fz: "글자 크기", listen: "들어 보기",
+ start: "시작하기", how: "사용법",
+ s2: "공부 방법", s2n: "모든 묶음은 세 가지 보기로 공부해요.", h3: [["문장보기", "대화·예문 듣고 따라 하기", "listen"], ["주요단어", "단어 카드로 뜻 익히기", "cards"], ["복습퀴즈", "10문제로 확인", "quiz"]], h3k: ["S", "W", "E"],
+ inside: "메뉴", learn: "호텔 영어", live: "시험·취업",
+ it: "HotelEng를 홈 화면에 추가", itn: "앱처럼 전체 화면으로 열리고, 음성을 저장하면 인터넷 없이도 들을 수 있어요. 앱 스토어는 필요 없어요.", det: "지금 쓰는 기기",
+ dlt: "내려받기", dla: "앱 설치", dlad: "다른 앱처럼 전체 화면으로 열려요.", inst: "설치", seehow: "방법 보기",
+ dlv: "음성 모두 저장", dlvd: "오프라인에서 듣기용 영어 음성. Wi‑Fi에서 받으세요.", save: "저장",
+ qr: "휴대폰으로 열기", qrd: "휴대폰 카메라로 찍으면 열려요.", copy: "복사", copied: "주소를 복사했어요",
+ foot: "호텔경영학과 학생을 위한 무료 영어 앱",
+ steps: {ios: ["Safari에서 이 페이지를 여세요.", "아래쪽 공유 버튼 {share}을 누르세요.", "아래로 내려 “홈 화면에 추가”를 고르세요.", "“추가”를 누르면 홈 화면에 HotelEng가 생겨요."],
+  android: ["아래 “설치”를 누르세요.", "안 보이면 Chrome 메뉴 {dots}에서 “앱 설치”를 고르세요.", "“설치”를 누른 뒤 홈 화면에서 HotelEng를 여세요."],
+  ipad: ["Safari에서 이 페이지를 여세요.", "오른쪽 위 공유 버튼 {share}을 누르세요.", "“홈 화면에 추가” → “추가”를 누르세요."],
+  chrome: ["Chrome이나 Edge 주소창 끝의 설치 아이콘 {inst}을 누르세요.", "“설치”를 누르면 HotelEng가 따로 창으로 열리고 바탕화면에 바로가기가 생겨요."],
+  safari: ["Mac Safari에서 파일 메뉴를 여세요.", "“Dock에 추가” → “추가”를 누르세요."]}
+};
+const ICON = {
+ play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
+ stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+ arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+ share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>',
+ inst: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M12 8v6M9 11l3 3 3-3"/></svg>',
+ dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+ audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>',
+ phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="7" y="3" width="10" height="18" rx="2.5"/></svg>',
+ pc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>',
+ poster: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+ bell: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10 46h44M14 46a18 18 0 0 1 36 0"/><path d="M32 22v-4M28 18h8"/><path d="M8 52h48"/></svg>',
+ listen: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 36v-4a20 20 0 0 1 40 0v4"/><rect x="10" y="36" width="10" height="16" rx="4"/><rect x="44" y="36" width="10" height="16" rx="4"/></svg>',
+ cards: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="12" width="30" height="40" rx="5" transform="rotate(-8 29 32)"/><rect x="22" y="14" width="30" height="40" rx="5"/><path d="M30 28h14M30 36h10"/></svg>',
+ quiz: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="20"/><path d="m23 32 6 6 12-13"/></svg>'
+};
+
+/* the device: install steps for it are shown first */
+const ua = navigator.userAgent || "";
+const isIPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+const REAL = isIPad ? "ipad" : /iPhone|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? (/Mobile/.test(ua) ? "android" : "atab") : /Mac/.test(ua) ? "mac" : "pc";
+const os = {phone: REAL === "android" ? "android" : "ios", pad: REAL === "atab" ? "atab" : "ipad", pc: REAL === "mac" ? "safari" : "chrome"};
+const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+let bip = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); bip = e; });
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const kb = s => esc(s).replace(/\{(share|inst|dots)\}/g, (m, k) => '<span class="kbd">' + ICON[k] + '</span>');
+const fmt = n => Number(n).toLocaleString("en-US");
+const rep = () => String(S.rep || 2), rate = () => String(S.rate || 1), theme = () => S.theme || "auto", fz = () => S.fz || 1;
+function isDark(){ const th = theme(); if (th === "dark") return true; if (th === "light") return false; return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches); }
+/* no separate landscape layout (RYU 2026-11-27): a phone on its side keeps the phone layout */
+function devOf(){ const w = window.innerWidth, touch = navigator.maxTouchPoints > 0, sm = Math.min(screen.width, screen.height);
+  if (touch && sm < 600) return "phone"; return w < 700 ? "phone" : w < 1100 ? "pad" : "pc"; }
+
+function heroCopy(){ return `
+  <span class="badge"><img src="icon-192.png" alt="">HotelEng</span>
+  <h1 class="ko">호텔서비스 영어</h1>
+  <p class="losub">${esc(x.sub)}</p>
+  <p class="lead">${esc(x.lead)}</p>
+  <div class="stats"><div><b>${fmt(HE.n.b)}</b><span>${x.st[0]}</span></div><div><b>${fmt(HE.n.w)}</b><span>${x.st[1]}</span></div><div><b>${fmt(HE.n.s)}</b><span>${x.st[2]}</span></div><div><b>${HE.n.m}</b><span>${x.st[3]}</span></div></div>`; }
+function brand(){ return `<div class="brand"><img src="icon-192.png" alt=""><div><b>HotelEng</b><span>Hotel Service English · 호텔서비스 영어</span></div></div>`; }
+function free(long){ return `<span class="freepill"><i></i>${x.free}${long ? " · " + esc(x.hello) : ""}</span>`; }
+function step(n, k, note){ return `<div class="sh">${n ? `<span class="n">${n}</span>` : ""}<div><h2>${esc(x[k])}</h2>${note ? `<p>${esc(x[note])}</p>` : ""}</div></div>`; }
+function seg(name, opts, cur, cls){ return `<div class="seg${cls ? " " + cls : ""}" role="group">${opts.map(([v, l]) => `<button type="button" data-${name}="${v}" class="${String(v) === String(cur) ? "on" : ""}" aria-pressed="${String(v) === String(cur)}">${esc(l)}</button>`).join("")}</div>`; }
+function pass(withCta){
+  return `<div class="pass">
+  <div class="passhead"><span class="ph pico">${ICON.bell}</span><div><div class="pt">HOTELENG PASS</div><div class="pn">${esc(x.pass)}<small>Study settings</small></div></div><div class="pid">ENGLISH · 영어<br>${new Date().getFullYear()}</div></div>
+  <div class="scarf"></div>
+  <div class="passbody">
+   <div class="row"><div class="lab">${esc(x.rep)}<small>Repeat</small></div>${seg("rep", [1, 2, 3, 4, 5].map(n => [n, n + "회"]), rep())}</div>
+   <div class="row full"><div class="rate"><div class="lab">${esc(x.spd)}<small>Speed</small></div><div class="rtrack"><input type="range" min="0.7" max="1.5" step="0.1" value="${rate()}" data-rate aria-label="${esc(x.spd)}"><div class="ticks" aria-hidden="true">${[0.7, 1, 1.5].map(v => `<span style="left:${((v - 0.7) / 0.8 * 100).toFixed(2)}%">${v.toFixed(1)}</span>`).join("")}</div></div><output>×${(+rate()).toFixed(1)}</output></div></div>
+   <div class="row"><div class="lab">${esc(x.theme)}<small>Theme</small></div>${seg("theme", [["auto", x.th[0]], ["light", x.th[1]], ["dark", x.th[2]]], theme(), "txt")}</div>
+   <div class="row"><div class="lab">${esc(x.fz)}<small>Text size</small></div>${seg("fz", [[0.9, "A−"], [1, "A"], [1.15, "A+"], [1.3, "A++"]], fz())}</div>
+   <div class="sample"><button type="button" class="play" data-act="sample" aria-label="${esc(x.listen)}">${playing ? ICON.stop : ICON.play}</button><div><div class="s1 en">${esc(SAMPLE_EN)}</div><div class="s2">${esc(SAMPLE_KO)}</div></div><div class="s3">${rep()}회 · ×${(+rate()).toFixed(1)}<br>${esc(x.listen)}</div></div>
+  </div>
+  ${withCta ? `<div class="passcta">${cta()}</div>` : ""}
+  <div class="passfoot">${esc(x.s1n)}</div>
+ </div>`; }
+function how3(){ return `<div class="how3">${x.h3.map((h, i) => `<div class="hstep"><span class="k">${x.h3k[i]}</span><span class="hico">${ICON[h[2]]}</span><b>${esc(h[0])}</b><small>${esc(h[1])}</small></div>`).join("")}</div>`; }
+function menus(){ const tile = (m, i) => `<button type="button" class="mt${i >= LEARN ? " live" : ""}" data-area="${m[0]}"><span class="g"${m[1].length > 3 ? ' style="font-size:.6em"' : ""}>${esc(m[1])}</span><span class="t"><b>${esc(m[2])}</b><small>${esc(m[3])}</small></span></button>`;
+  return `<div class="menus"><div class="mgl">${esc(x.learn)}</div>${MENUS.slice(0, LEARN).map(tile).join("")}<div class="mgl">${esc(x.live)}</div>${MENUS.slice(LEARN).map((m, i) => tile(m, i + LEARN)).join("")}</div>`; }
+function osTabs(dev){ const o = dev === "phone" ? [["ios", "iPhone"], ["android", "Android"]] : dev === "pad" ? [["ipad", "iPad"], ["atab", "Android"]] : [["chrome", "Chrome · Edge"], ["safari", "Mac Safari"]];
+  return `<div class="otabs" role="group">${o.map(([k, l]) => `<button type="button" data-os="${dev}:${k}" class="${os[dev] === k ? "on" : ""}">${l}</button>`).join("")}</div>`; }
+function steps(dev){ const k = os[dev] === "atab" ? "android" : os[dev]; return `<ol class="steps">${x.steps[k].map(s => `<li><span>${kb(s)}</span></li>`).join("")}</ol>`; }
+function detectChip(dev){ const name = {phone: {ios: "iPhone · Safari", android: "Android · Chrome"}, pad: {ipad: "iPad · Safari", atab: "Android 태블릿"}, pc: {chrome: "PC · Chrome/Edge", safari: "Mac · Safari"}}[dev][os[dev]];
+  return `<span class="detect"><i>${dev === "pc" ? ICON.pc : ICON.phone}</i>${esc(x.det)}: <b>${name}</b></span>`; }
+function downloads(dev){ const ios = (dev === "phone" && os.phone === "ios") || (dev === "pad" && os.pad === "ipad") || (dev === "pc" && os.pc === "safari");
+  const hasAudio = !!document.querySelector(".dla");
+  return `<div class="dls">
+   <div class="dl"><span class="ic"><img src="icon-192.png" alt=""></span><span class="tx"><b>${esc(x.dla)}</b><small>${esc(x.dlad)}</small></span>${standalone ? '<span class="go y">✓</span>' : `<button type="button" class="go y" data-act="${ios ? "how" : "install"}">${esc(ios ? x.seehow : x.inst)}</button>`}</div>
+   ${hasAudio ? `<div class="dl"><span class="ic">${ICON.audio}</span><span class="tx"><b>${esc(x.dlv)}</b><small>${esc(x.dlvd)}</small><small class="dlmsg" data-dlmsg></small></span><button type="button" class="go" data-act="audio">${esc(x.save)}</button></div>` : ""}
+  </div>`; }
+function addr(){ return `<div class="addr">${URL_APP}<button type="button" data-act="copy">${esc(x.copy)}</button></div>`; }
+function foot(){ return `<div class="foot"><div><b>HotelEng</b> · 호텔서비스 영어<div>${esc(x.foot)}</div><div>${URL_APP} · ${esc(HE.ver)} · Copyleft</div></div></div>`; }
+function cta(){ return `<button type="button" class="btn pri" data-act="start">${esc(x.start)} ${ICON.arrow}</button>`; }
+function howBtn(cls){ return `<button type="button" class="btn ${cls}" data-act="how">${esc(x.how)}</button>`; }
+const img = (k, alt, cls, st) => `<img${cls ? ` class="${cls}"` : ""} src="${pic(k)}" alt="${esc(alt || "")}"${st ? ` style="${st}"` : ""}>`;
+
+/* ---- the three layouts ---- */
+function phone(){ return `
+ <div class="hero">${img("hero", "", "bg")}
+  <div class="top">${brand()}${free(false)}</div>
+  <div class="copy">${heroCopy()}</div></div>
+ <div class="sec">${step(1, "s1")}${pass(false)}</div>
+ <div class="sec">${step(2, "s2", "s2n")}${how3()}</div>
+ <div class="sec"><div class="sh"><div><h2>${esc(x.inside)}</h2></div></div>${menus()}</div>
+ <div class="inst">${img("inst", "", "bg")}
+  ${detectChip("phone")}<h2>${esc(x.it)}</h2><p style="margin:0;opacity:.85;font-size:.88em">${esc(x.itn)}</p>
+  ${osTabs("phone")}${steps("phone")}${downloads("phone")}${addr()}</div>
+ ${foot()}
+ <div class="sticky">${cta()}</div>`; }
+function pad(){ return `
+ <div class="hero">${img("heroPad", "", "bg")}
+  <div class="top">${brand()}${free(true)}</div>
+  <div class="copy">${heroCopy()}</div></div>
+ <div class="wrap">
+  <div class="duo">
+   <div class="lcard">${step(0, "s2", "s2n")}${how3()}</div>
+   ${pass(false)}
+  </div>
+  <div class="ctarow" style="margin-top:-8px">${howBtn("sec")}${cta()}</div>
+  <div style="display:grid;gap:12px"><h2 style="font-size:1.25em">${esc(x.inside)}</h2>${menus()}</div>
+ </div>
+ <div class="inst">${img("inst", "", "bg")}
+  <div style="display:grid;gap:14px;align-content:start">${detectChip("pad")}<h2 style="font-size:1.4em">${esc(x.it)}</h2><p style="margin:0;opacity:.85;font-size:.9em">${esc(x.itn)}</p>${osTabs("pad")}${steps("pad")}</div>
+  <div style="display:grid;gap:12px;align-content:start"><h3 style="font-size:1em;opacity:.9">${esc(x.dlt)}</h3>${downloads("pad")}${addr()}</div>
+ </div>
+ <div class="frow">${foot()}</div>`; }
+function pc(){ return `
+ <div class="hero">${img("heroPc", "", "bg")}<span class="glow2"></span>
+  <div class="nav">${brand()}${[0, 2, 6, 7].map(i => `<a href="#" data-area="${MENUS[i][0]}">${esc(MENUS[i][2])}</a>`).join("")}<span class="sp"></span>${free(true)}${cta()}</div>
+  <div class="hgrid">
+   <div class="copy">${heroCopy()}<div class="cta">${cta()}${howBtn("ghost")}</div>
+    <div class="strip">${img("s1")}${img("s2")}${img("s3")}</div></div>
+   <div class="passwrap">${pass(true)}</div>
+  </div></div>
+ <div class="band">
+  <div style="display:grid;gap:14px;align-content:start"><h2>${esc(x.s2)}</h2><p style="margin:0;color:var(--mm);font-size:.92em">${esc(x.s2n)} ${esc(x.s1n)}</p>${how3()}</div>
+  <div><h2 style="margin-bottom:12px">${esc(x.inside)}</h2>${menus()}<div class="gal">${img("g1")}${img("g2")}${img("g3")}</div></div>
+ </div>
+ <div class="inst">${img("inst", "", "bg")}
+  <div style="display:grid;gap:14px;align-content:start">${detectChip("pc")}<h2 style="font-size:1.5em">${esc(x.it)}</h2><p style="margin:0;opacity:.85;font-size:.92em">${esc(x.itn)}</p>${osTabs("pc")}${steps("pc")}</div>
+  <div style="display:grid;gap:12px;align-content:start;justify-items:start"><h3 style="font-size:1em">${esc(x.qr)}</h3><div class="qrbox"><img src="img/qr.svg" alt="QR ${URL_APP}"></div><p style="margin:0;opacity:.85;font-size:.85em">${esc(x.qrd)}</p>${addr()}</div>
+  <div style="display:grid;gap:12px;align-content:start"><h3 style="font-size:1em;opacity:.9">${esc(x.dlt)}</h3>${downloads("pc")}</div>
+ </div>
+ <div class="frow">${foot()}</div>`; }
+
+/* ---- show, redraw, close ---- */
+let box = null, curDev = null;
+function render(){
+  if (!box) return;
+  const d = devOf(), y = box.scrollTop;
+  box.className = "m " + (d === "phone" ? "P" : d === "pad" ? "T" : "D") + (isDark() ? " dk" : "");
+  box.style.setProperty("--fz", fz());
+  box.innerHTML = '<div class="wrapin">' + (d === "phone" ? phone() : d === "pad" ? pad() : pc()) + "</div>";
+  box.scrollTop = d === curDev ? y : 0; curDev = d;
+  mirrorDl();
+}
+function open(){
+  if (box) return;
+  box = document.createElement("div"); box.id = "intro"; box.lang = "ko"; box.className = "notr"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "HotelEng");
+  document.body.appendChild(box); document.documentElement.classList.add("introon");
+  render();
+  try { sessionStorage.setItem("he-intro", "open"); } catch (e) {}
+}
+function close(){
+  stopSample();
+  try { sessionStorage.setItem("he-intro", "closed"); } catch (e) {}
+  if (box){ box.remove(); box = null; } document.documentElement.classList.remove("introon");
+}
+let rT = 0;
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { if (box && devOf() !== curDev) render(); }, 150); });
+if (window.matchMedia){ const mq = matchMedia("(prefers-color-scheme: dark)"); if (mq.addEventListener) mq.addEventListener("change", () => { if (box && theme() === "auto") render(); }); }
+
+/* sample: one of the app's own recorded sentences, repeated × at the chosen speed */
+const SAMPLE_EN = "Good evening. Welcome to our hotel.", SAMPLE_KO = "안녕하세요(저녁 인사). 저희 호텔에 오신 것을 환영합니다.";
+let RUN = 0, playing = false;
+function stopSample(){ RUN++; if (playing){ playing = false; try { HE.quiet(); } catch (e) {} } }
+async function sample(){
+  if (playing){ stopSample(); render(); return; }
+  const me = ++RUN, on = () => playing && RUN === me;
+  playing = true; render(); const n = +rep() || 1;
+  for (let i = 0; i < n && on(); i++){
+    await HE.speak(SAMPLE_EN, "f");
+    if (on()) await new Promise(r => setTimeout(r, 350));
+  }
+  if (RUN === me){ playing = false; render(); }
+}
+function toast(msg){ if (!box) return; const el = document.createElement("div"); el.className = "toast"; el.textContent = msg; box.appendChild(el); setTimeout(() => el.remove(), 2200); }
+/* the app's own "음성 mp3 내려받기" link does the work; its progress text is copied here */
+function mirrorDl(){ const src = document.querySelector("p.dlp .dls"), dst = box && box.querySelector("[data-dlmsg]"); if (src && dst) dst.textContent = src.textContent; }
+{ const src = document.querySelector("p.dlp .dls"); if (src && window.MutationObserver) new MutationObserver(mirrorDl).observe(src, {childList: true, characterData: true, subtree: true}); }
+function goArea(a){ const m = MENUS.find(m => String(m[0]) === String(a)); close(); if (m) HE.go(S.lastA && S.lastA[m[0]] ? S.lastA[m[0]] : m[4]); setTimeout(() => scrollTo(0, 0), 80); }
+
+document.addEventListener("click", ev => {
+  if (!box || !box.contains(ev.target)) return;
+  const b = ev.target.closest("button,a"); if (!b || b.disabled) return;
+  if (b.dataset.rep){ HE.setRep(b.dataset.rep); render(); return; }
+  if (b.dataset.theme){ S.theme = b.dataset.theme; HE.save(); HE.applyPrefs(); render(); return; }
+  if (b.dataset.fz){ S.fz = +b.dataset.fz; HE.save(); HE.applyPrefs(); render(); return; }
+  if (b.dataset.os){ const [d, k] = b.dataset.os.split(":"); os[d] = k; render(); return; }
+  if (b.dataset.area){ ev.preventDefault(); goArea(b.dataset.area); return; }
+  const a = b.dataset.act; if (!a) return;
+  ev.preventDefault();
+  if (a === "start") close();
+  else if (a === "sample") sample();
+  else if (a === "copy"){ const done = () => toast(x.copied); try { navigator.clipboard.writeText("https://" + URL_APP + "/").then(done, done); } catch (e) { done(); } }
+  else if (a === "install"){ if (bip){ bip.prompt(); bip.userChoice.then(() => { bip = null; }, () => {}); } else { const el = box.querySelector(".steps"); if (el) el.scrollIntoView({behavior: "smooth", block: "center"}); } }
+  else if (a === "audio"){ const d = document.querySelector(".dla"); if (d) d.click(); }
+  else if (a === "how"){ const el = box.querySelector(".steps"); if (el) el.scrollIntoView({behavior: "smooth", block: "center"}); }
+});
+document.addEventListener("input", ev => { if (box && ev.target.matches("#intro [data-rate]")){ const v = (+ev.target.value).toFixed(1); HE.setRate(v); const o = ev.target.closest(".rate").querySelector("output"); if (o) o.textContent = "×" + (+v).toFixed(1); } });
+document.addEventListener("change", ev => { if (box && ev.target.matches("#intro [data-rate]")) render(); });
+/* while the intro is open, the app's keys stay off; Esc closes it */
+document.addEventListener("keydown", ev => { if (!box) return; if (ev.key === "Escape") close(); else if (!/^(Tab|Enter| )$/.test(ev.key) && !ev.target.closest("#intro input")) ev.stopImmediatePropagation(); }, true);
+
+/* open: no lesson link in the address and not yet closed in this visit; a refresh keeps whichever screen was showing */
+let st = null; try { st = sessionStorage.getItem("he-intro"); } catch (e) {}
+const h0 = window.HE_HASH0 != null ? window.HE_HASH0 : location.hash;   // the address as it was before app.js added the bundle
+if (st === "open" || (h0.length <= 1 && st !== "closed")) open();
+HE.intro = open;
 })();
