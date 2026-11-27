@@ -1,4 +1,4 @@
-const HE_VER = "v1.69";
+const HE_VER = "v1.70";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -61,7 +61,7 @@ function makeAudioPack(opt){
    Copied from PhasaKAO src/stats.js (itself from JeyCampus). No names, no e-mail: each device gets a random id. Events wait in
    this device's storage and are sent in small batches to RYU's Google Sheet (Apps Script: /mnt/project-files/hotel-english-app/stats/Code.gs).
    Not sent from localhost / file previews. STATS_URL empty = nothing is recorded. */
-const STATS_URL = /^https:/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !/claude|anthropic/.test(location.hostname) ? "https://script.google.com/macros/s/AKfycbzTg3Lhtz2Si2OdoknqapBId7SGZPUinPYeuJzB8_GqhltgocW1aOvkCftuX26Ih2mxBQ/exec" : "";   // RYU 2026-11-27: HotelEng sheet
+const STATS_URL = /^https:/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) && !/claude|anthropic/.test(location.hostname) ? "https://script.google.com/macros/s/AKfycbwZNJ6JYJ7GaqgU56WZoAqklaPSX_KnE2viSEPhSdtvfZC3tazNRqRvitklWNiHx5KGdw/exec" : "";   // RYU 2026-11-27: HotelEng sheet
 const ST = (() => {
   const QK = "hoteleng-stats", IK = "hoteleng-id", MAX = 400;
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
