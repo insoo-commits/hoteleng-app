@@ -1,4 +1,4 @@
-const HE_VER = "v1.68";
+const HE_VER = "v1.69";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -1101,7 +1101,7 @@ for (const e of [document.querySelector(".top .brand"), document.querySelector("
   e.addEventListener("click", goHome); e.addEventListener("keydown", ev => { if (ev.key === "Enter") goHome(); }); }
 
 /* hooks for src/intro.js */
-window.HE = {S, save, applyPrefs, speak: (t, v) => speakOne(t, v || "f"), quiet, setRep: v => { S.rep = +v; $("repSel").value = String(S.rep); save(); }, setRate: v => { setRate(v); save(); },
+window.HE = {logo: (document.querySelector(".hmlogo-a") || {}).outerHTML, S, save, applyPrefs, speak: (t, v) => speakOne(t, v || "f"), quiet, setRep: v => { S.rep = +v; $("repSel").value = String(S.rep); save(); }, setRate: v => { setRate(v); save(); },
   go: code => go(code), groups: G.map((g, i) => [i + 1, g[0], g[1][0][1][0]]), ver: HE_VER,
   n: (() => { let w = 0, s = 0; const L = ORDER.filter(c => !isInfo(c)); for (const c of L){ const b = B[c]; w += (b.w || []).length; s += (b.w || []).reduce((t, x) => t + x[4].length * 2, 0) + (b.d || []).length + (b.dr || []).reduce((t, x) => t + x[2].length, 0); } return {b: L.length, w, s, m: G.length - 1}; })()};
 
@@ -1228,7 +1228,7 @@ function downloads(dev){ const ios = (dev === "phone" && os.phone === "ios") || 
    ${hasAudio ? `<div class="dl"><span class="ic">${ICON.audio}</span><span class="tx"><b>${esc(x.dlv)}</b><small>${esc(x.dlvd)}</small><small class="dlmsg" data-dlmsg></small></span><button type="button" class="go" data-act="audio">${esc(x.save)}</button></div>` : ""}
   </div>`; }
 function addr(){ return `<div class="addr">${URL_APP}<button type="button" data-act="copy">${esc(x.copy)}</button></div>`; }
-function foot(){ return `<div class="foot"><div><b>HotelEng</b> · 호텔서비스 영어<div>${esc(x.foot)}</div><div>${URL_APP} · ${esc(HE.ver)} · Copyleft</div></div></div>`; }
+function foot(){ return `<div class="foot"><div><b>HotelEng</b> · 호텔서비스 영어<div>${esc(x.foot)}</div><div>${URL_APP} · ${esc(HE.ver)} · Copyleft</div></div>${HE.logo || ""}</div>`; }
 function cta(){ return `<button type="button" class="btn pri" data-act="start">${esc(x.start)} ${ICON.arrow}</button>`; }
 function howBtn(cls){ return `<button type="button" class="btn ${cls}" data-act="how">${esc(x.how)}</button>`; }
 const img = (k, alt, cls, st) => `<img${cls ? ` class="${cls}"` : ""} src="${pic(k)}" alt="${esc(alt || "")}"${st ? ` style="${st}"` : ""}>`;
