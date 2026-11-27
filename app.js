@@ -1,4 +1,4 @@
-const HE_VER = "v1.72";
+const HE_VER = "v1.73";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -760,8 +760,10 @@ function makeQuiz(b){
 function renderQuiz(b){
   if (!quiz || quiz.code !== b.code) quiz = makeQuiz(b);
   if (!quiz.qs.length) return [h("p", {class: "empty"}, "이 묶음에는 퀴즈로 낼 단어가 부족해요."), pnRow(b.code)];
-  if (quiz.at >= quiz.qs.length) return [h("p", {class: "quizp"}, "점수"), h("div", {class: "score"}, quiz.right + " / " + quiz.qs.length),
-    h("div", {class: "rowbtns", style: "justify-content:center"}, h("button", {class: "btn primary", type: "button", onclick: () => { stopPlay(); quiz = null; render(); }}, "다시 풀기")), pnRow(b.code)];
+  if (quiz.at >= quiz.qs.length){ const r = quiz.right / quiz.qs.length;   // department character on the result screen (RYU 2026-11-27)
+    return [h("div", {class: "qmascot"}, h("img", {src: "img/intro/mascot.png", alt: "", width: 163, height: 130}), h("div", {class: "bub"}, r >= 0.9 ? "Excellent! 호텔리어 준비 완료예요." : r >= 0.6 ? "Good job! 틀린 단어만 한 번 더 봐요." : "Nice try! 문장보기로 한 번 더 듣고 다시 풀어 봐요.")),
+    h("p", {class: "quizp"}, "점수"), h("div", {class: "score"}, quiz.right + " / " + quiz.qs.length),
+    h("div", {class: "rowbtns", style: "justify-content:center"}, h("button", {class: "btn primary", type: "button", onclick: () => { stopPlay(); quiz = null; render(); }}, "다시 풀기")), pnRow(b.code)]; }
   const q = quiz.qs[quiz.at];
   const head = q.kind === "listen" ? h("div", {class: "quizq listen", "data-say": q.it.en, "data-v": "f"}, h("button", {class: "btn primary", type: "button", onclick: ev => playEls([ev.currentTarget.parentNode])}, ico("spk"), " 듣기"))
     : q.kind === "blank" ? h("div", {class: "quizq qblank"}, h("div", {class: "qen"}, q.blank.pre, h("span", {class: "blank"}, "?"), q.blank.post), h("div", {class: "qlo"}, q.blank.ko))
@@ -1216,6 +1218,8 @@ function pass(withCta){
   ${withCta ? `<div class="passcta">${cta()}</div>` : ""}
   <div class="passfoot">${esc(x.s1n)}</div>
  </div>`; }
+/* department character (RYU 2026-11-27) with a short greeting */
+function mascot(){ return `<div class="mascot"><img src="img/intro/mascot.png" alt="호텔경영학과 캐릭터" width="163" height="130"><div class="bub"><b>Welcome to HotelEng!</b><span>호텔 현장 영어, 오늘 한 묶음부터 같이 시작해요.</span></div></div>`; }
 function how3(){ return `<div class="how3">${x.h3.map((h, i) => `<div class="hstep"><span class="k">${x.h3k[i]}</span><span class="hico">${ICON[h[2]]}</span><b>${esc(h[0])}</b><small>${esc(h[1])}</small></div>`).join("")}</div>`; }
 function menus(){ const tile = (m, i) => `<button type="button" class="mt${i >= LEARN ? " live" : ""}" data-area="${m[0]}"><span class="g"${m[1].length > 3 ? ' style="font-size:.6em"' : ""}>${esc(m[1])}</span><span class="t"><b>${esc(m[2])}</b><small>${esc(m[3])}</small></span></button>`;
   return `<div class="menus"><div class="mgl">${esc(x.learn)}</div>${MENUS.slice(0, LEARN).map(tile).join("")}<div class="mgl">${esc(x.live)}</div>${MENUS.slice(LEARN).map((m, i) => tile(m, i + LEARN)).join("")}</div>`; }
@@ -1242,7 +1246,7 @@ function phone(){ return `
   <div class="top">${brand()}${free(false)}</div>
   <div class="copy">${heroCopy()}</div></div>
  <div class="sec">${step(1, "s1")}${pass(false)}</div>
- <div class="sec">${step(2, "s2", "s2n")}${how3()}</div>
+ <div class="sec">${step(2, "s2", "s2n")}${how3()}${mascot()}</div>
  <div class="sec"><div class="sh"><div><h2>${esc(x.inside)}</h2></div></div>${menus()}</div>
  <div class="inst">${img("inst", "", "bg")}
   ${detectChip("phone")}<h2>${esc(x.it)}</h2><p style="margin:0;opacity:.85;font-size:.88em">${esc(x.itn)}</p>
@@ -1255,7 +1259,7 @@ function pad(){ return `
   <div class="copy">${heroCopy()}</div></div>
  <div class="wrap">
   <div class="duo">
-   <div class="lcard">${step(0, "s2", "s2n")}${how3()}</div>
+   <div class="lcard">${step(0, "s2", "s2n")}${how3()}${mascot()}</div>
    ${pass(false)}
   </div>
   <div class="ctarow" style="margin-top:-8px">${howBtn("sec")}${cta()}</div>
@@ -1274,7 +1278,7 @@ function pc(){ return `
    <div class="passwrap">${pass(true)}</div>
   </div></div>
  <div class="band">
-  <div style="display:grid;gap:14px;align-content:start"><h2>${esc(x.s2)}</h2><p style="margin:0;color:var(--mm);font-size:.92em">${esc(x.s2n)} ${esc(x.s1n)}</p>${how3()}</div>
+  <div style="display:grid;gap:14px;align-content:start"><h2>${esc(x.s2)}</h2><p style="margin:0;color:var(--mm);font-size:.92em">${esc(x.s2n)} ${esc(x.s1n)}</p>${how3()}${mascot()}</div>
   <div><h2 style="margin-bottom:12px">${esc(x.inside)}</h2>${menus()}<div class="gal">${img("g1", "와인 서비스 실습")}${img("g2", "콘래드 싱가포르 특강")}${img("g3", "호텔 인사담당자 모의 면접")}${img("g4", "프런트 PMS 실습")}${img("g5", "연회 테이블 세팅")}${img("g6", "코트야드 메리어트 잡섀도잉")}</div></div>
  </div>
  <div class="inst">${img("inst", "", "bg")}
