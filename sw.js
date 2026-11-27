@@ -1,8 +1,8 @@
 /* 호텔서비스 영어 service worker (same plan as lao-app):
    app files in CacheStorage (network first, saved copy after 4 s or offline);
    mp3 clips in IndexedDB ("hoteleng-audio" / store "c", key = file name), filled as they play or by "음성 mp3 내려받기". */
-const SHELL = "hoteleng-shell-1.70";
-const FILES = ["./", "index.html", "data.js?v=1.70", "app.js?v=1.70", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
+const SHELL = "hoteleng-shell-1.71";
+const FILES = ["./", "index.html", "data.js?v=1.71", "app.js?v=1.71", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 let _db; const ADB = () => _db || (_db = new Promise((res, rej) => { const r = indexedDB.open("hoteleng-audio", 1); r.onupgradeneeded = () => r.result.createObjectStore("c"); r.onsuccess = () => res(r.result); r.onerror = () => { _db = null; rej(r.error); }; }));
 const aget = k => ADB().then(db => new Promise(res => { const q = db.transaction("c").objectStore("c").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); })).catch(() => null);
 const aput = (k, v) => ADB().then(db => new Promise(res => { const tx = db.transaction("c", "readwrite"); tx.objectStore("c").put(v, k); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); })).catch(() => false);
