@@ -1114,7 +1114,10 @@ window.HE = {S, save, applyPrefs, speak: (t, v) => speakOne(t, v || "f"), quiet,
 const HE = window.HE; if (!HE) return;
 const S = HE.S, URL_APP = "hoteleng.pages.dev";
 /* picture slots: file in img/intro/ once RYU has sent it (null = placeholder) */
-const PICS = {hero: null, heroPad: null, heroPc: null, inst: null, s1: null, s2: null, s3: null, g1: null, g2: null, g3: null};
+/* RYU's photos 2026-11-27 (picked by Claude from 25): Temasek welcome programme (hero), Together programme group (install band),
+   PC rows under the menus: wine service, Conrad Singapore talk, HR mock interview, PMS practice, banquet set-up, job shadowing */
+const PICS = {hero: "welcome-s.jpg", heroPad: "welcome.jpg", heroPc: "welcome.jpg", inst: "together.jpg", s1: null, s2: null, s3: null,
+  g1: "wine.jpg", g2: "conrad.jpg", g3: "interview.jpg", g4: "pms.jpg", g5: "banquet-s.jpg", g6: "shadowing.jpg"};
 const SLOT = {hero: "① 휴대폰 첫 화면 배경", heroPad: "② 태블릿 첫 화면 배경", heroPc: "③ PC 첫 화면 배경", inst: "④ 설치 안내 배경",
   s1: "⑤ PC 작은 사진 1", s2: "⑥ PC 작은 사진 2", s3: "⑦ PC 작은 사진 3", g1: "⑧ PC 메뉴 아래 사진 1", g2: "⑨ PC 메뉴 아래 사진 2", g3: "⑩ PC 메뉴 아래 사진 3"};
 function pic(k){
@@ -1264,13 +1267,12 @@ function pc(){ return `
  <div class="hero">${img("heroPc", "", "bg")}<span class="glow2"></span>
   <div class="nav">${brand()}${[0, 2, 6, 7].map(i => `<a href="#" data-area="${MENUS[i][0]}">${esc(MENUS[i][2])}</a>`).join("")}<span class="sp"></span>${free(true)}${cta()}</div>
   <div class="hgrid">
-   <div class="copy">${heroCopy()}<div class="cta">${cta()}${howBtn("ghost")}</div>
-    <div class="strip">${img("s1")}${img("s2")}${img("s3")}</div></div>
+   <div class="copy">${heroCopy()}<div class="cta">${cta()}${howBtn("ghost")}</div></div>
    <div class="passwrap">${pass(true)}</div>
   </div></div>
  <div class="band">
   <div style="display:grid;gap:14px;align-content:start"><h2>${esc(x.s2)}</h2><p style="margin:0;color:var(--mm);font-size:.92em">${esc(x.s2n)} ${esc(x.s1n)}</p>${how3()}</div>
-  <div><h2 style="margin-bottom:12px">${esc(x.inside)}</h2>${menus()}<div class="gal">${img("g1")}${img("g2")}${img("g3")}</div></div>
+  <div><h2 style="margin-bottom:12px">${esc(x.inside)}</h2>${menus()}<div class="gal">${img("g1", "와인 서비스 실습")}${img("g2", "콘래드 싱가포르 특강")}${img("g3", "호텔 인사담당자 모의 면접")}${img("g4", "프런트 PMS 실습")}${img("g5", "연회 테이블 세팅")}${img("g6", "코트야드 메리어트 잡섀도잉")}</div></div>
  </div>
  <div class="inst">${img("inst", "", "bg")}
   <div style="display:grid;gap:14px;align-content:start">${detectChip("pc")}<h2 style="font-size:1.5em">${esc(x.it)}</h2><p style="margin:0;opacity:.85;font-size:.92em">${esc(x.itn)}</p>${osTabs("pc")}${steps("pc")}</div>
