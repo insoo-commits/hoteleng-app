@@ -1,4 +1,4 @@
-const HE_VER = "v1.71";
+const HE_VER = "v1.72";
 /* Audio packs in the browser (see tools/audiopack.js): one file per lesson holds all of its clips.
    Opening a lesson loads its pack (from IndexedDB when saved before, else from the network), then every clip of it plays at once
    from memory, as before. A clip from another lesson (search, related lessons) loads that clip's home pack first.
@@ -990,7 +990,10 @@ if (/^https?:/.test(location.protocol) && "serviceWorker" in navigator) navigato
   const st = $("stick"), mb = document.querySelector(".menubox"), sg = $("stickG"), g = $("groups");
   if (!st || !mb || !("IntersectionObserver" in window)) return;
   const sync = () => { sg.innerHTML = g.innerHTML; sg.querySelectorAll(".glide").forEach(x => x.remove()); $("stickT").textContent = [...$("bselBtn").querySelectorAll(".ddn,.ddk")].map(x => x.textContent).join(" "); const on = sg.querySelector('[aria-pressed="true"]'); if (on && !st.hidden) on.scrollIntoView({block: "nearest", inline: "center"}); };
-  new IntersectionObserver(es => { const e = es[0]; const show = !e.isIntersecting && e.boundingClientRect.bottom < 0; if (show === !st.hidden) return; st.hidden = !show; if (show) sync(); }).observe(mb);
+  /* v1.72 (RYU 2026-11-27): the sticky row takes over exactly when the page's own menu row reaches the place where the sticky row sits,
+     and gives it back at the same point when scrolling up (it used to wait until the whole menu box had left the screen) */
+  const upd = () => { const T = innerWidth > 600 ? 11 : 6, show = g.getBoundingClientRect().top < T; if (show === !st.hidden) return; st.hidden = !show; if (show) sync(); };
+  addEventListener("scroll", upd, {passive: true}); addEventListener("resize", upd); upd();
   new MutationObserver(() => { if (!st.hidden) sync(); }).observe(g, {childList: true, subtree: true, attributes: true});
   new MutationObserver(() => { if (!st.hidden) sync(); }).observe($("bselBtn"), {childList: true, subtree: true, characterData: true});
   sg.addEventListener("click", e => { const t = e.target.closest(".group"); if (!t) return; const i = [...sg.querySelectorAll(".group")].indexOf(t); const o = g.querySelectorAll(".group")[i]; if (o) o.click(); document.querySelector(".search").scrollIntoView({block: "start"}); });
