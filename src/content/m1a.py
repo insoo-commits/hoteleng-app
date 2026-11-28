@@ -1,0 +1,38 @@
+# 1 기초회화 00 — the most basic greetings and polite words (RYU 2026-11-24). A = male voice, B = female voice.
+def W(w, ko, lv, *pairs): return (w, None, ko, lv, list(pairs))
+AB = {"wl": ["A", "B"], "ww": ["A", "B"]}
+
+SUB_BASIC = {"n": "기본 인사", "b": [
+ dict(AB, **{"t": "기본 인사와 예의 표현", "en": "Basic Greetings & Polite Words",
+  "i": "Good morning, Thank you, Excuse me, I'm sorry처럼 하루에도 몇 번씩 쓰는 가장 기본적인 인사와 예의 표현을 익힙니다.",
+  "tp": ["학습 목표: 시간에 맞는 인사(morning / afternoon / evening)와 감사·사과·부탁 표현을 바로 말할 수 있다.",
+         "시간 인사: 낮 12시 전 Good morning, 12시~6시쯤 Good afternoon, 저녁 Good evening. Good night은 헤어지거나 잘 때만 씁니다.",
+         "호텔에서는 손님을 볼 때마다 먼저 인사합니다: Good morning, sir. / Good evening, ma'am."],
+  "dt": "아침 인사와 감사",
+  "d": [("A", "Good morning, Jisu.", "좋은 아침이에요, 지수 씨."),
+        ("B", "Good morning! How are you?", "좋은 아침이에요! 잘 지내요?"),
+        ("A", "I'm fine, thank you. And you?", "잘 지내요, 고마워요. 지수 씨는요?"),
+        ("B", "Great, thanks. Excuse me, is this your pen?", "아주 좋아요, 고마워요. 실례지만, 이거 당신 펜이에요?"),
+        ("A", "Oh, yes. Thank you very much.", "아, 네. 정말 고마워요."),
+        ("B", "You're welcome.", "천만에요."),
+        ("A", "I'm sorry, I have to go now. Have a nice day!", "미안해요, 지금 가 봐야 해요. 좋은 하루 보내요!"),
+        ("B", "You too. Goodbye!", "당신도요. 잘 가요!")],
+  "w": [W("good morning", "좋은 아침이에요 (오전 인사)", "하", ("Good morning, sir.", "안녕하세요, 손님. (오전)", "Good morning.", "안녕하세요."), ("Good morning, everyone!", "모두 좋은 아침이에요!", "Good morning, teacher!", "좋은 아침이에요, 선생님!")),
+        W("good afternoon", "안녕하세요 (오후 인사)", "하", ("Good afternoon. May I help you?", "안녕하세요. (오후) 도와드릴까요?", "Yes, please.", "네, 부탁해요."), ("Good afternoon, Ms. Kim.", "안녕하세요, 김 선생님. (오후)", "Good afternoon. How was lunch?", "안녕하세요. 점심은 어땠어요?")),
+        W("good evening", "안녕하세요 (저녁 인사)", "하", ("Good evening. Welcome to our hotel.", "안녕하세요. (저녁) 저희 호텔에 오신 것을 환영합니다.", "Thank you.", "고마워요."), ("Good evening, ma'am. A table for two?", "안녕하세요, 손님. (저녁) 두 분이세요?", "Yes, please.", "네.")),
+        W("good night", "잘 자요, 안녕히 가세요 (밤 작별)", "하", ("Good night. See you tomorrow.", "잘 자요. 내일 봐요.", "Good night!", "잘 자요!"), ("Good night, sir. Have a good rest.", "안녕히 주무세요, 손님. 푹 쉬세요.", "Thank you. Good night.", "고마워요. 잘 자요.")),
+        W("thank you", "고마워요, 감사합니다", "하", ("Thank you for your help.", "도와줘서 고마워요.", "No problem.", "괜찮아요."), ("Here's your key. Thank you.", "열쇠 여기 있습니다. 감사합니다.", "Thank you.", "고마워요.")),
+        W("you're welcome", "천만에요", "하", ("Thanks a lot!", "정말 고마워요!", "You're welcome.", "천만에요."), ("Thank you for the map.", "지도 고마워요.", "You're welcome. Enjoy your trip.", "천만에요. 즐거운 여행 되세요.")),
+        W("excuse me", "실례합니다, 저기요", "하", ("Excuse me, where is the restroom?", "실례지만, 화장실이 어디예요?", "It's over there.", "저쪽에 있어요."), ("Excuse me. Can I get through?", "실례합니다. 좀 지나가도 될까요?", "Oh, sure.", "아, 그럼요.")),
+        W("I'm sorry", "미안해요, 죄송합니다", "하", ("I'm sorry. I'm late.", "미안해요. 늦었어요.", "That's okay.", "괜찮아요."), ("I'm sorry for the wait.", "기다리게 해서 죄송합니다.", "No problem.", "괜찮아요.")),
+        W("please", "~해 주세요, 부탁해요", "하", ("Coffee, please.", "커피 주세요.", "Sure. Hot or iced?", "네. 따뜻한 걸로요, 아이스로요?"), ("Please have a seat.", "앉으세요.", "Thank you.", "고마워요.")),
+        W("goodbye", "안녕히 가세요, 잘 가요", "하", ("Goodbye! See you next week.", "잘 가요! 다음 주에 봐요.", "Bye!", "안녕!"), ("Goodbye, sir. Have a safe trip.", "안녕히 가세요, 손님. 조심히 가세요.", "Thank you. Goodbye.", "고마워요. 안녕히 계세요."))],
+  "dr": [("Good ~.", "시간에 맞는 인사", [("Good morning.", "좋은 아침이에요. (오전)"), ("Good afternoon.", "안녕하세요. (오후)"), ("Good evening.", "안녕하세요. (저녁)")]),
+         ("Thank you for ~.", "~해 줘서 고마워요.", [("Thank you for your help.", "도와줘서 고마워요."), ("Thank you for coming.", "와 줘서 고마워요."), ("Thank you for waiting.", "기다려 줘서 고마워요.")]),
+         ("Excuse me, ~?", "실례지만, ~? (모르는 사람에게 말을 걸 때)", [("Excuse me, where is the lobby?", "실례지만, 로비가 어디예요?"), ("Excuse me, what time is it?", "실례지만, 몇 시예요?"), ("Excuse me, is this seat taken?", "실례지만, 이 자리 주인 있어요?")])],
+  "sm": ["시간 인사: Good morning (오전) / Good afternoon (오후) / Good evening (저녁) / Good night (헤어질 때·잘 때).",
+         "감사 → Thank you. ↔ You're welcome. / 사과 → I'm sorry. ↔ That's okay. / 말 걸기 → Excuse me. / 부탁 → ~, please."],
+  "qa": [("저녁 7시에 손님을 만났을 때 인사는?", "Good evening."), ("\"Thank you.\"에 대한 대답은?", "You're welcome."), ("모르는 사람에게 길을 물을 때 처음에 하는 말은?", "Excuse me."), ("\"Good night.\"은 언제 쓰나요?", "밤에 헤어지거나 잘 때 (만날 때는 Good evening)")],
+  "tq": [("Part 2 · 질의응답", "Good morning. How are you today?", ["I'm fine, thank you.", "It's on the second floor.", "At nine o'clock."], 0, "안부를 묻는 How are you?에는 I'm fine 등으로 답합니다."),
+         ("Part 2 · 질의응답", "Thank you for your help.", ["You're welcome.", "Yes, I can help.", "It's very helpful."], 0, "감사 인사에는 You're welcome.으로 답합니다. (B)(C)는 help를 반복한 함정입니다.")],
+  "rel": ["1-02-01", "2-03-01", "1-05-01"]})]}
