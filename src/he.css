@@ -1,0 +1,90 @@
+
+/* ===== v1.68 HotelEng (RYU 2026-11-27): like PhasaKAO / PhasaLAO ===== */
+/* header: white pill with the app name before the tagline */
+#app .top .eyebrow .logo{display:inline-block;font:700 12px/1 "Space Grotesk",system-ui,sans-serif;letter-spacing:.6px;padding:3px 7px 2px;border-radius:6px;background:#fff;color:#17507a;margin-right:6px;vertical-align:1px;opacity:1}
+@media (max-width:600px){#app .top .eyebrow .logo{font-size:11px;padding:2px 6px 1px}}
+/* text size: sentences and explanations grow, the menus keep their size */
+#view,#band{zoom:var(--fz,1)}
+/* PC: content as wide as PhasaKAO / PhasaLAO (about 1258px on a 1440px screen) */
+@media (min-width:900px){#app.wrap{max-width:1176px}.stick .stin{max-width:1176px}.info .facts th{width:220px}}
+/* sticky menu: only the menu row, where and as big as the page's own menu (RYU 2026-11-27) */
+#app .stick .strow{display:none}
+/* bottom row: 글자 크기 · 화면 · HOME */
+.prefs{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;margin:14px 8px 2px;font-size:12px;color:var(--muted)}
+.pseg{display:flex;align-items:center;gap:8px}
+.pbtns{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--sheet)}
+.pb{border:0;background:none;padding:6px 12px;font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.pb+.pb{border-left:1px solid var(--line)}
+.pb.on{background:var(--accent);color:var(--sheet);font-weight:600}
+.pb.phome{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-weight:700;background:var(--sheet);letter-spacing:.04em}
+.pb.phome .hico{display:inline-flex}.pb.phome svg{width:15px;height:15px}
+@media (max-width:600px){.prefs{flex-wrap:nowrap;gap:6px;margin-left:0;margin-right:0}.pb{padding:5px 8px;font-size:11.5px}.pb.phome{padding:5px 9px}}
+@media (max-width:370px){.pb{padding:4px 6px;font-size:11px}}
+.svbox{max-width:640px;margin:0 auto;width:100%}
+/* ※ notes on the right (RYU 2026-11-27, same as the other apps) */
+.gl{text-align:right}
+/* help pages: page title, lead box, numbered colour boxes (PhasaKAO v2.77) */
+.info .hphead h2{font-size:22px;margin:2px 0 0;line-height:1.3}
+.info .hphead .sub2{color:var(--muted);font-size:14px;margin-bottom:14px;font-family:var(--display)}
+.info .ib{background:var(--sheet);border:1px solid var(--line);border-radius:14px;margin:0 0 14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.info .ib>h3{margin:0;padding:9px 16px 8px;border-bottom:1px solid var(--line);background:var(--raise);font-size:16.5px;line-height:1.35;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.info .ibb{padding:12px 16px 8px}
+.info .ibb>p:first-child{margin-top:0}
+.info.hpinfo{counter-reset:hpsec}
+.info.hpinfo .ib:not(.ib-lead){counter-increment:hpsec;--hc:#17507a;border-color:color-mix(in srgb,var(--hc) 28%,var(--line));border-top:4px solid var(--hc);box-shadow:0 2px 10px rgba(15,47,77,.07)}
+.info.hpinfo .ib.hc1{--hc:#1E7F4F}
+.info.hpinfo .ib.hc2{--hc:#A23B57}
+.info.hpinfo .ib.hc3{--hc:#B7791F}
+.info.hpinfo .ib>h3{background:color-mix(in srgb,var(--hc,var(--accent)) 9%,var(--sheet));border-bottom-color:color-mix(in srgb,var(--hc,var(--accent)) 20%,var(--line))}
+.info.hpinfo .ib:not(.ib-lead)>h3::before{content:counter(hpsec);width:26px;height:26px;border-radius:50%;background:var(--hc);color:#fff;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .info.hpinfo .ib{--hc:#8FC1E6}:root:not([data-theme="light"]) .info.hpinfo .ib.hc1{--hc:#4CB582}:root:not([data-theme="light"]) .info.hpinfo .ib.hc2{--hc:#E07A95}:root:not([data-theme="light"]) .info.hpinfo .ib.hc3{--hc:#E0A84A}}
+.info.hpinfo .ib.ib-lead{background:color-mix(in srgb,var(--accent-soft) 55%,var(--sheet));border-color:color-mix(in srgb,var(--accent) 25%,var(--line))}
+.info.hpinfo .ib-lead .ibb{padding:12px 16px}
+.info.hpinfo .ib-lead p{margin:0}
+.info.hpinfo .ib-shots .ibb{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 20px}
+.info.hpinfo .ib-shots .hshot{margin:4px 0 8px}
+.info.hpinfo .ib-shots .hshots{justify-content:center}
+.info .facts{width:100%;border-collapse:collapse;margin:2px 0 8px;font-size:14.5px}
+.info .facts th{width:30%;max-width:230px;text-align:left;font-weight:700;color:var(--hc,var(--accent));padding:7px 8px 7px 0;vertical-align:top;border-bottom:1px solid var(--line);line-height:1.45}
+.info .facts td{text-align:left;padding:7px 0;border-bottom:1px solid var(--line);line-height:1.55}
+.info .facts tr:last-child th,.info .facts tr:last-child td{border-bottom:0}
+@media (max-width:600px){.info .facts th{width:34%;font-size:13.5px}.info .facts td{font-size:14px}.info .ibb{padding:10px 12px 6px}.info .ib>h3{padding:8px 12px 7px;font-size:15.5px}}
+#statsPage,#surveyPage{margin-top:4px}
+/* PC/tablet: the sticky menu row sits where the page's menu row is, at the same size (RYU 2026-11-27, like PhasaKAO v2.89) */
+@media (min-width:601px){
+  #app .stick .stin{padding:10px 30px 9px}
+  #app .stick .groups{padding:4px!important;align-self:stretch;max-width:none}
+  #app .stick .group{padding:7px 14px!important;font-size:15px!important;line-height:19.5px}
+  #app .stick .groups .glide{top:4px;bottom:auto}
+  .stick .hs{align-self:stretch}
+}
+/* ※ word notes on the right (all apps, RYU 2026-11-27) */
+#app .gl,#app .line .gl{text-align:right!important}
+#intro .sample .s3{white-space:nowrap}
+/* text sizes a step closer to PhasaKAO / PhasaLAO (RYU 2026-11-27): English sentences and meanings slightly larger */
+#app #view .line .k{font-size:20px}
+#app #view .line .m{font-size:16px}
+@media (max-width:600px){#app #view .line .k{font-size:17.5px}#app #view .line .m{font-size:15px}#app #view .gl{font-size:14px!important}}
+/* 호텔경영학과 logo at the bottom (RYU 2026-11-27), redrawn as SVG so day and night get their own colours */
+.hmlogo-a{display:block;width:max-content;margin:18px auto 4px;text-decoration:none;border-radius:8px}
+.hmlogo{display:block;width:175px;height:auto;--hb:#1F4E79;--ho:#C55A11;--ht:#111}
+.hmlogo .b{fill:var(--hb)}.hmlogo .o{fill:var(--ho)}.hmlogo .l{stroke:var(--hb)}.hmlogo .t{fill:var(--ht);font-family:"IBM Plex Sans KR","Noto Sans KR",system-ui,sans-serif}
+:root[data-theme="dark"] .hmlogo{--hb:#7FAEDB;--ho:#E58A45;--ht:#E8EEF5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .hmlogo{--hb:#7FAEDB;--ho:#E58A45;--ht:#E8EEF5}}
+#intro .foot{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+#intro .foot .hmlogo-a{margin:0 0 2px auto;flex:none}
+@media (max-width:600px){.hmlogo{width:150px}}
+#intro .frow>.foot{flex:1}
+/* department character (RYU 2026-11-27): intro, quiz result, help; a thin light outline keeps it readable on the dark screen */
+#intro .mascot{display:flex;align-items:center;gap:12px;margin-top:14px}
+#intro .mascot img{width:140px;height:auto;flex:none}
+#intro .mascot .bub{position:relative;background:var(--ms);border:1px solid var(--ml);color:var(--mi);border-radius:14px;padding:10px 14px;font-size:.88em;line-height:1.45;display:grid;gap:2px;box-shadow:0 2px 8px rgba(15,47,77,.08)}
+#intro .mascot .bub::before{content:"";position:absolute;left:-7px;top:50%;width:12px;height:12px;background:inherit;border-left:1px solid var(--ml);border-bottom:1px solid var(--ml);transform:translateY(-50%) rotate(45deg)}
+#intro .mascot .bub b{font-family:var(--display);color:var(--red)}
+.qmascot{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 4px}
+.qmascot img{width:150px;height:auto}
+.qmascot .bub{background:var(--raise);border:1px solid var(--line);border-radius:14px;padding:9px 13px;font-size:14.5px;line-height:1.45;max-width:260px}
+.info .hlead .hmascot{float:right;width:110px;height:auto;margin:-4px 0 0 10px}
+.info .ib-lead .ibb::after{content:"";display:block;clear:both}
+:root[data-theme="dark"] .qmascot img,:root[data-theme="dark"] .hmascot,:root[data-theme="dark"] #intro .mascot img{filter:drop-shadow(0 0 1px rgba(255,255,255,.85)) drop-shadow(0 0 1px rgba(255,255,255,.6))}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .qmascot img,:root:not([data-theme="light"]) .hmascot,:root:not([data-theme="light"]) #intro .mascot img{filter:drop-shadow(0 0 1px rgba(255,255,255,.85)) drop-shadow(0 0 1px rgba(255,255,255,.6))}}

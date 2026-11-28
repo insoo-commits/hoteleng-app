@@ -1,2 +1,5 @@
 audio/*.mp3
-audio/index.json
+site/
+preview/
+__pycache__/
+audio/*.tar
