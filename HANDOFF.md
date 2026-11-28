@@ -12,8 +12,9 @@
 
 - **원본 소스는 이제 저장소에 있습니다** (2026-11-28, `src/`, `data/phe_areas.json`, `tools/mp3tar.py`, `tools/stats/Code.gs`, `audio/index.json`, `audio/packs.json`). 저장소 루트의 index.html, app.js, data.js, sw.js, audio/p/*.bin은 `src/build.py`가 만든 **결과물**이라, 저장소 루트 파일만 고치면 다음 빌드 때 사라집니다. 항상 `src/`를 고치고 빌드하세요.
 - 빌드 준비: `pip install cmudict edge-tts`, node + Playwright(clips.js, helpshots.js가 씀).
-- **mp3 원본 `audio/mp3.tar`(약 190MB, 14,060클립)는 저장소에 없습니다** (용량). 예전 프로젝트 폴더 `/mnt/project-files/hotel-english-app/audio/mp3.tar`에만 있으니, RYU가 새 프로젝트 파일로 올려 두세요. 올린 뒤 저장소의 `audio/mp3.tar` 자리에 두거나 `HOTELENG_MP3=<mp3 폴더>`로 빌드합니다.
-- mp3 원본 없이 빌드하면 `build.py`가 `STOP: mp3 원본이 없습니다…`를 출력하고 멈춥니다(음성 팩을 지우지 않도록 막아 둠). 이때 생긴 site/는 음성이 빠져 있으니 배포하지 마세요.
+- **mp3 원본 `audio/mp3.tar`는 올리지 않아도 됩니다** (2026-11-28). 음성 팩 `audio/p/*.bin`에 mp3가 바이트 그대로 들어 있어서, `audio/mp3.tar`가 없으면 `tools/mp3tar.py`가 팩에서 14,060클립을 모두 꺼내 로컬 캐시(/tmp/mp3cache)에 둡니다. `build.py`와 `make_audio.py`가 이것을 자동으로 씁니다(빌드 출력: `mp3tar: no mp3.tar, 14060 clips taken out of …/audio/p`). 손으로 꺼내려면 `python3 tools/mp3tar.py frompacks audio/p <폴더>`.
+- 확인: 팩에서 꺼낸 클립으로 빌드하면 "site audio clips 14060 of 14060"이고 index.html·app.js·sw.js가 v1.77 배포본과 같습니다.
+- 그래도 mp3 원본이 하나도 없으면 `build.py`가 `STOP: mp3 원본이 없습니다…`를 출력하고 멈춥니다(음성 팩을 지우지 않도록 막아 둠). 이때 생긴 site/는 음성이 빠져 있으니 배포하지 마세요.
 - 그 밖의 자료(예전 프로젝트 폴더): 포스터 `hotel-english-app/poster/`(src/poster.html, PDF·PNG).
 
 ## 1. 앱 정보
@@ -31,7 +32,7 @@
 3. 다른 스레드에서도 배포한 적이 있으니 **배포 전에 VERSION 확인 + git pull.**
 4. 배포 = `site/`의 index.html, app.js, data.js, sw.js, manifest.webmanifest, og.jpg, img/를 저장소 루트로 복사. 음성 팩은 빌드가 `audio/p/*.bin`에 바로 씀. **mp3는 절대 커밋하지 않음**(.gitignore audio/*.mp3). TOEIC 팩 7-01-01..04는 빌드마다 바이트가 바뀌니 data.js와 같이 복사.
 5. `claude/...` 브랜치 → PR → main merge. PR에 RYU 지정.
-- 음성 만들기: `python3 src/make_audio.py <codes|all>`는 **build.py와 한 명령에 이어 붙이지 말고 따로 실행**(작업 폴더 문제). 첫 전체 팩 빌드는 `HOTELENG_MP3=<로컬 mp3 복사본>` 필요(네트워크 폴더가 느림). mp3 원본은 `tools/mp3tar.py`로 tar 하나에 보관.
+- 음성 만들기: `python3 src/make_audio.py <codes|all>`는 **build.py와 한 명령에 이어 붙이지 말고 따로 실행**(작업 폴더 문제). mp3 원본은 팩에서 자동으로 꺼내 쓰고(위 ⚠️), `make_audio.py`가 새 클립을 만들면 `audio/mp3.tar`(.gitignore)에 전체를 저장합니다. 다른 mp3 폴더를 쓰려면 `HOTELENG_MP3=<폴더>`.
 - 도움말 스크린샷: `node src/helpshots.js <outdir>` → webp q62 → 다시 빌드. 캡션에 "]" 금지.
 
 ## 3. 콘텐츠 구성 (RYU 결정)
@@ -75,6 +76,5 @@
 
 ## 7. 남은 일
 
-- **mp3.tar를 새 프로젝트 파일로 올리기** (위 ⚠️ 참고). 문장을 바꾸거나 새 음성을 만들 때 필요합니다.
 - 실제 iPhone에서 음량 슬라이더 + 잠금화면 재생 확인.
 - 같은 sw.js Range 버그가 다른 앱에 있는지는 확인 안 됨.

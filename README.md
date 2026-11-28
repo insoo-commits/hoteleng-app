@@ -9,4 +9,4 @@
 ## 원본 소스 (2026-11-28)
 
 - `src/` = 원본. `python3 src/build.py` 로 빌드합니다. 자세한 내용은 `HANDOFF.md`.
-- mp3 원본 `audio/mp3.tar` 는 저장소에 넣지 않습니다.
+- mp3 원본 `audio/mp3.tar` 는 저장소에 넣지 않습니다. 없으면 빌드가 음성 팩(audio/p/*.bin)에서 mp3를 그대로 꺼내 씁니다.

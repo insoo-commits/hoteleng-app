@@ -271,10 +271,11 @@ def build():
 
 def mp3_dir():
     """the mp3 clips live in ../audio/mp3.tar (RYU 2026-11-26: one file instead of 14,000 in the project folder);
-    unpacked once to local disk (/tmp/mp3cache) and reused. HOTELENG_MP3 = use that folder instead."""
+    unpacked once to local disk (/tmp/mp3cache) and reused. HOTELENG_MP3 = use that folder instead.
+    Without the tar, the clips are taken out of the audio packs ../audio/p/*.bin (byte for byte the same mp3)."""
     if os.environ.get("HOTELENG_MP3"): return os.environ["HOTELENG_MP3"]
     tar = os.path.join(H, "..", "audio", "mp3.tar")
-    if not os.path.exists(tar): return os.path.join(H, "..", "audio")
+    # no mp3.tar (it is not in the repository): mp3tar.path takes the clips back out of audio/p/*.bin (2026-11-28)
     sys.path.insert(0, "/mnt/project-files/tools"); sys.path.insert(0, os.path.join(H, "..", "tools")); import mp3tar
     return mp3tar.path(tar)
 
